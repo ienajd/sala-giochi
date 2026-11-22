@@ -1,0 +1,130 @@
+/* Catalogo dei giochi. Una colonna sul telefono, fino a quattro sul computer.
+   I colori stanno tutti qui sotto: per cambiare aspetto basta toccare queste righe. */
+:root{
+  --sfondo:#131a2b; --piano:#1c2540; --piano2:#27325a; --bordo:#33407a;
+  --testo:#f4f1e6; --tenue:#aab4d1; --inchiostro:#0b0f1a;
+  --giallo:#ffd24a; --corallo:#ff7a59; --menta:#3ed6b5; --azzurro:#7aa2ff;
+  --tondo:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Nunito",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --lato:max(16px,env(safe-area-inset-left,0px));
+  --latod:max(16px,env(safe-area-inset-right,0px));
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--sfondo);color:var(--testo);font-family:var(--tondo);font-size:17px;line-height:1.45;
+  -webkit-tap-highlight-color:transparent;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+main{flex:1;width:100%;max-width:1320px;margin:0 auto;padding:0 var(--latod) 32px var(--lato)}
+h1,h2,h3,p{margin:0}
+a{color:inherit}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--giallo);outline-offset:3px}
+
+/* ---------- testata ---------- */
+.testa{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;max-width:1320px;margin:0 auto;
+  padding:calc(env(safe-area-inset-top,0px) + 14px) var(--latod) 10px var(--lato)}
+.marchio{display:flex;align-items:center;gap:12px;text-decoration:none;min-width:0}
+.marchio svg{flex:none}
+.nome{font-size:1.55rem;font-weight:900;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.installa{flex:none;border:0;border-radius:999px;background:var(--giallo);color:var(--inchiostro);font-weight:800;padding:10px 18px;min-height:44px}
+
+.apertura{padding:18px 0 22px}
+.apertura h1{font-size:clamp(1.7rem,6.4vw,3rem);font-weight:900;line-height:1.08;letter-spacing:-.02em;max-width:18ch;text-wrap:balance}
+.apertura p{margin-top:10px;color:var(--tenue);max-width:46ch}
+
+h2{font-size:1.25rem;font-weight:900;margin:8px 0 12px}
+
+/* ---------- consiglio per l'iPhone ---------- */
+.consiglio{display:flex;align-items:flex-start;gap:10px;background:var(--piano);border:1px solid var(--bordo);border-radius:16px;padding:12px 12px 12px 16px;margin-bottom:20px}
+.consiglio p{flex:1;font-size:.95rem}
+.consiglio button{flex:none;border:0;background:none;color:var(--tenue);width:36px;height:36px;border-radius:50%;font-size:1rem}
+.tasto-ios{display:inline-flex;vertical-align:-3px;color:var(--azzurro)}
+
+/* ---------- continua a giocare ---------- */
+.recenti{margin-bottom:22px}
+.striscia{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:6px;margin:0 calc(-1*var(--latod)) 0 calc(-1*var(--lato));padding-left:var(--lato);padding-right:var(--latod);scrollbar-width:none}
+.striscia::-webkit-scrollbar{display:none}
+.mini{flex:none;width:168px;scroll-snap-align:start;text-decoration:none;display:flex;flex-direction:column;gap:6px}
+.mini img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:12px;background:var(--piano2);display:block}
+.mini span{font-weight:800;font-size:.95rem;line-height:1.2}
+
+/* ---------- filtri ---------- */
+.filtri{display:flex;gap:8px;overflow-x:auto;margin:0 calc(-1*var(--latod)) 16px calc(-1*var(--lato));padding:2px var(--latod) 4px var(--lato);scrollbar-width:none}
+.filtri::-webkit-scrollbar{display:none}
+.filtri button{flex:none;border:1px solid var(--bordo);background:var(--piano);border-radius:999px;padding:9px 16px;min-height:42px;font-weight:700;white-space:nowrap}
+.filtri button[aria-pressed="true"]{background:var(--testo);border-color:var(--testo);color:var(--inchiostro)}
+
+/* ---------- griglia dei giochi ---------- */
+.griglia{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr))}
+.carta{display:flex;flex-direction:column;text-decoration:none;background:var(--piano);border-radius:20px;overflow:hidden;
+  box-shadow:0 2px 0 rgba(255,255,255,.04) inset,0 10px 24px rgba(0,0,0,.28);transition:transform .15s ease,box-shadow .15s ease}
+.carta:active{transform:scale(.985)}
+@media (hover:hover){.carta:hover{transform:translateY(-4px);box-shadow:0 2px 0 rgba(255,255,255,.06) inset,0 18px 34px rgba(0,0,0,.4)}}
+.cop{position:relative;display:block;background:var(--piano2)}
+.cop img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.nuovo{position:absolute;left:12px;top:12px;background:var(--giallo);color:var(--inchiostro);font-weight:900;font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:4px 10px}
+.pref{position:absolute;right:12px;top:12px;width:32px;height:32px;border-radius:50%;background:rgba(11,15,26,.72);color:var(--corallo);display:none;align-items:center;justify-content:center}
+.carta.preferito .pref{display:flex}
+.corpo{display:flex;flex-direction:column;gap:4px;padding:14px 16px 16px}
+.cat{font-size:.8rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--menta)}
+.carta[data-cat="azione"] .cat,.scheda[data-cat="azione"] .cat{color:var(--corallo)}
+.carta[data-cat="mira"] .cat,.scheda[data-cat="mira"] .cat{color:var(--giallo)}
+.carta[data-cat="mondo-aperto"] .cat,.scheda[data-cat="mondo-aperto"] .cat{color:var(--azzurro)}
+.tit{font-size:1.3rem;font-weight:900;line-height:1.15}
+.breve{color:var(--tenue);font-size:.98rem}
+.segni{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0;padding:0;list-style:none}
+.segni>*{background:var(--piano2);border-radius:999px;padding:3px 10px;font-size:.82rem;font-weight:700;color:var(--testo)}
+.vuoto{color:var(--tenue);padding:28px 0}
+
+/* ---------- piede ---------- */
+.piede{width:100%;max-width:1320px;margin:0 auto;padding:20px var(--latod) calc(env(safe-area-inset-bottom,0px) + 24px) var(--lato);border-top:1px solid var(--piano2);font-size:.92rem}
+.tenue{color:var(--tenue)}
+.piede .tenue{margin-top:4px}
+
+/* ---------- scheda del gioco: sale dal basso sul telefono, al centro sul computer ---------- */
+.scheda{border:0;padding:0;background:var(--piano);color:var(--testo);width:100%;max-width:100%;margin:auto 0 0;
+  border-radius:24px 24px 0 0;max-height:92vh;max-height:92dvh;overflow:hidden;flex-direction:column}
+.scheda[open]{display:flex;animation:sale .22s ease}
+.scheda::backdrop{background:rgba(6,9,18,.72)}
+@keyframes sale{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.s-cop{position:relative;flex:none;background:var(--piano2)}
+.s-cop img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;max-height:38vh}
+.s-chiudi{position:absolute;right:12px;top:12px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(11,15,26,.78);color:#fff;font-size:1.1rem}
+.s-corpo{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px var(--latod) 8px var(--lato);overscroll-behavior:contain}
+.s-corpo h2{font-size:1.7rem;margin:2px 0 0;line-height:1.1}
+.s-corpo .segni{margin:10px 0 14px}
+.s-corpo h3{font-size:1.02rem;font-weight:900;margin:18px 0 6px}
+.s-corpo ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+.nota{margin-top:16px;background:var(--piano2);border-radius:12px;padding:10px 14px;font-size:.93rem}
+.s-azioni{flex:none;display:flex;gap:10px;align-items:center;padding:12px var(--latod) calc(env(safe-area-inset-bottom,0px) + 14px) var(--lato);border-top:1px solid var(--piano2)}
+.gioca{flex:1;display:flex;align-items:center;justify-content:center;min-height:56px;border-radius:16px;background:var(--giallo);color:var(--inchiostro);
+  font-weight:900;font-size:1.25rem;text-decoration:none;box-shadow:0 4px 0 #b88f1c}
+.gioca:active{transform:translateY(3px);box-shadow:0 1px 0 #b88f1c}
+.tondo{flex:none;width:56px;height:56px;border-radius:16px;border:1px solid var(--bordo);background:var(--piano2);display:flex;align-items:center;justify-content:center}
+.tondo svg path{fill:none}
+#s-cuore[aria-pressed="true"]{color:var(--corallo);border-color:var(--corallo)}
+#s-cuore[aria-pressed="true"] svg path{fill:currentColor}
+
+@media (min-width:720px){
+  .scheda{margin:auto;max-width:640px;border-radius:24px;max-height:min(88vh,860px)}
+  .s-corpo{padding-left:24px;padding-right:24px}
+  .s-azioni{padding:14px 24px 18px}
+}
+/* telefono in orizzontale: copertina a sinistra, testo a destra, per non perdere metà schermo in altezza */
+@media (max-height:480px) and (orientation:landscape){
+  .scheda{width:100%;max-width:100%;height:100vh;height:100dvh;max-height:none;margin:0;border-radius:0;display:none;grid-template-columns:42% 1fr;grid-template-rows:1fr auto}
+  .scheda[open]{display:grid}
+  .s-cop{grid-row:1/3}
+  .s-cop img{height:100%;max-height:none;aspect-ratio:auto}
+  .s-chiudi{left:max(12px,env(safe-area-inset-left,0px));right:auto}
+  .s-azioni{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 10px)}
+}
+
+/* ---------- avviso breve in basso ---------- */
+.avviso{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--testo);color:var(--inchiostro);
+  font-weight:800;border-radius:999px;padding:10px 18px;z-index:10;box-shadow:0 8px 24px rgba(0,0,0,.4);max-width:calc(100% - 32px);text-align:center}
+
+@media (prefers-reduced-motion:reduce){
+  .carta,.gioca{transition:none}
+  .scheda[open]{animation:none}
+}

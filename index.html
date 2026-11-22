@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sala Giochi: giochi gratis da giocare subito</title>
+<meta name="description" content="Giochi originali da giocare subito, dal telefono o dal computer. Gratis, senza account e senza scaricare niente.">
+<meta name="theme-color" content="#131a2b">
+<link rel="manifest" href="app.webmanifest">
+<link rel="icon" href="icone/icona.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icone/icona-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sala Giochi">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sala Giochi">
+<meta property="og:description" content="Giochi originali da giocare subito, dal telefono o dal computer. Gratis, senza account e senza scaricare niente.">
+<meta property="og:url" content="https://ienajd.github.io/sala-giochi/">
+<meta property="og:image" content="https://ienajd.github.io/sala-giochi/icone/anteprima.jpg">
+<link rel="stylesheet" href="stile.css">
+</head>
+<body>
+
+<header class="testa">
+  <a class="marchio" href="./" aria-label="Sala Giochi, pagina iniziale">
+    <svg viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
+      <rect x="5" y="5" width="25" height="25" rx="8" fill="#ffd24a"/>
+      <rect x="34" y="5" width="25" height="25" rx="8" fill="#ff7a59"/>
+      <rect x="5" y="34" width="25" height="25" rx="8" fill="#3ed6b5"/>
+      <rect x="34" y="34" width="25" height="25" rx="8" fill="#7aa2ff"/>
+      <path d="M43 40.5v12l10-6z" fill="#131a2b"/>
+    </svg>
+    <span class="nome">Sala Giochi</span>
+  </a>
+  <button class="installa" id="installa" type="button" hidden>Installa</button>
+</header>
+
+<main>
+  <section class="apertura">
+    <h1>Giochi fatti in casa. Gratis, senza account.</h1>
+    <p>Tocca un gioco e parti: funzionano sul telefono, sul tablet e sul computer.</p>
+  </section>
+
+  <aside class="consiglio" id="consiglio-ios" hidden>
+    <p><strong>Vuoi l'icona sul telefono?</strong> Tocca <span class="tasto-ios" aria-label="Condividi">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span> e poi «Aggiungi alla schermata Home».</p>
+    <button type="button" id="consiglio-chiudi" aria-label="Chiudi il consiglio">✕</button>
+  </aside>
+
+  <section class="recenti" id="recenti" hidden aria-labelledby="recenti-tit">
+    <h2 id="recenti-tit">Continua a giocare</h2>
+    <div class="striscia" id="recenti-lista"></div>
+  </section>
+
+  <section aria-labelledby="tutti-tit">
+    <h2 id="tutti-tit">Tutti i giochi</h2>
+    <div class="filtri" id="filtri" role="group" aria-label="Filtra per tipo di gioco"></div>
+    <div class="griglia" id="griglia">
+      <a class="carta" href="giochi/sette-taglie/" data-id="sette-taglie" data-cat="mira">
+        <span class="cop"><img src="giochi/sette-taglie/copertina.jpg" alt="" width="960" height="540" loading="lazy"><span class="pref" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg></span></span>
+        <span class="corpo"><span class="cat">Mira</span><strong class="tit">Sette Taglie</strong><span class="breve">Sei il nuovo sceriffo: sette ricercati, sette duelli.</span><span class="segni"><span>1-2 giocatori</span><span>Da 9 anni</span></span></span>
+      </a>
+      <a class="carta" href="giochi/zuffa-in-cortile/" data-id="zuffa-in-cortile" data-cat="azione">
+        <span class="cop"><img src="giochi/zuffa-in-cortile/copertina.jpg" alt="" width="960" height="540" loading="lazy"><span class="pref" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg></span></span>
+        <span class="corpo"><span class="cat">Azione</span><strong class="tit">Zuffa in Cortile</strong><span class="breve">Tre contro tre per le ghiande d&#x27;oro della quercia.</span><span class="segni"><span>1 giocatore</span><span>Da 7 anni</span></span></span>
+      </a>
+      <a class="carta" href="giochi/occhio-alla-lava/" data-id="occhio-alla-lava" data-cat="abilita">
+        <span class="cop"><img src="giochi/occhio-alla-lava/copertina.jpg" alt="" width="960" height="540" loading="lazy"><span class="pref" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg></span></span>
+        <span class="corpo"><span class="cat">Salti e abilità</span><strong class="tit">Occhio alla Lava!</strong><span class="breve">Il pavimento è lava: salta di roccia in roccia.</span><span class="segni"><span>1 giocatore</span><span>Da 6 anni</span></span></span>
+      </a>
+      <a class="carta" href="giochi/arenzano-liberi-tutti/" data-id="arenzano-liberi-tutti" data-cat="mondo-aperto">
+        <span class="cop"><img src="giochi/arenzano-liberi-tutti/copertina.jpg" alt="" width="960" height="540" loading="lazy"><span class="pref" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg></span></span>
+        <span class="corpo"><span class="cat">Mondo aperto</span><strong class="tit">Arenzano: Liberi Tutti</strong><span class="breve">Il centro vero di Arenzano in 3D, da girare in libertà.</span><span class="segni"><span>1 giocatore</span><span>Da 12 anni</span></span></span>
+      </a>
+    </div>
+    <p class="vuoto" id="vuoto" hidden>Qui non c'è ancora niente. Prova un altro tipo di gioco.</p>
+  </section>
+</main>
+
+<footer class="piede">
+  <p>Non servono account: salvataggi e preferiti restano su questo dispositivo.</p>
+  <p class="tenue">Sala Giochi · 4 giochi · aggiornato il 22/11/2026</p>
+</footer>
+
+<dialog class="scheda" id="scheda" aria-labelledby="s-tit">
+  <div class="s-cop">
+    <img id="s-img" alt="" width="960" height="540">
+    <button type="button" class="s-chiudi" id="s-chiudi" aria-label="Chiudi">✕</button>
+  </div>
+  <div class="s-corpo">
+    <p class="cat" id="s-cat"></p>
+    <h2 id="s-tit"></h2>
+    <ul class="segni" id="s-segni"></ul>
+    <p id="s-desc"></p>
+    <h3>Come si gioca</h3>
+    <ol id="s-come"></ol>
+    <p class="nota" id="s-nota" hidden></p>
+  </div>
+  <div class="s-azioni">
+    <a class="gioca" id="s-gioca" href="#">Gioca</a>
+    <button type="button" class="tondo" id="s-cuore" aria-pressed="false" aria-label="Aggiungi ai preferiti">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+    </button>
+    <button type="button" class="tondo" id="s-condividi" aria-label="Condividi il gioco">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</dialog>
+
+<div class="avviso" id="avviso" role="status" hidden></div>
+
+<script id="dati" type="application/json">{"categorie": [{"id": "azione", "nome": "Azione"}, {"id": "abilita", "nome": "Salti e abilità"}, {"id": "mira", "nome": "Mira"}, {"id": "mondo-aperto", "nome": "Mondo aperto"}], "giochi": [{"id": "sette-taglie", "titolo": "Sette Taglie", "categoria": "mira", "categoriaNome": "Mira", "breve": "Sei il nuovo sceriffo: sette ricercati, sette duelli.", "descrizione": "Sei il nuovo sceriffo di Valpolvere. Sette ricercati in sette posti diversi: la via maestra, il saloon, il camposanto, la banca, un treno in corsa, la miniera e il paese sotto il temporale. In fondo a ogni via c'è il duello, e ogni ricercato ha il suo trucco. Con le taglie fai la spesa all'emporio.", "come": ["Mira e spara: nel tamburo ci sono sei colpi, poi si ricarica.", "Il cerchio sopra un bandito è il tempo che gli resta per spararti.", "Mani alzate vuol dire cittadino: non sparare.", "Nel duello aspetta la campana. Se colpisci la mano con la pistola lo prendi vivo e incassi la taglia intera."], "segni": ["1-2 giocatori", "Da 9 anni", "Sfida a due sullo stesso telefono", "Telefono in orizzontale", "Tocco", "Mouse"], "nota": "", "inDue": true, "pagina": "giochi/sette-taglie/", "copertina": "giochi/sette-taglie/copertina.jpg"}, {"id": "zuffa-in-cortile", "titolo": "Zuffa in Cortile", "categoria": "azione", "categoriaNome": "Azione", "breve": "Tre contro tre per le ghiande d'oro della quercia.", "descrizione": "Scegli tra volpe, riccio, rana e gufo e scendi in cortile. La quercia al centro sputa ghiande d'oro: vince la squadra che ne tiene 10 per 15 secondi. Chi va al tappeto le perde tutte.", "come": ["Raccogli le ghiande d'oro e resta in piedi: se vai al tappeto le perdi tutte.", "Hai tre colpi che si ricaricano e una mossa speciale.", "Nell'erba alta gli avversari non ti vedono."], "segni": ["1 giocatore", "Da 7 anni", "Tocco", "Tastiera e mouse"], "nota": "", "inDue": false, "pagina": "giochi/zuffa-in-cortile/", "copertina": "giochi/zuffa-in-cortile/copertina.jpg"}, {"id": "occhio-alla-lava", "titolo": "Occhio alla Lava!", "categoria": "abilita", "categoriaNome": "Salti e abilità", "breve": "Il pavimento è lava: salta di roccia in roccia.", "descrizione": "Il pavimento è lava e l'unica strada sono le rocce: ferme, mobili e che franano. Schiva i vulcani che eruttano, trova la chiave, apri la cassaforte e raggiungi il portone del livello dopo. Con le monete fai la spesa in bottega: molle, scudo, calamita, cappelli.", "come": ["Salta sulle rocce senza toccare la lava: hai 3 cuori.", "Mangia e bevi lungo la strada per non restare senza forze.", "Prendi la chiave, apri la cassaforte e arriva al portone.", "Un anello ti mostra dove atterri: bianco sulla roccia, rosso sulla lava."], "segni": ["1 giocatore", "Da 6 anni", "Tocco", "Tastiera"], "nota": "", "inDue": false, "pagina": "giochi/occhio-alla-lava/", "copertina": "giochi/occhio-alla-lava/copertina.jpg"}, {"id": "arenzano-liberi-tutti", "titolo": "Arenzano: Liberi Tutti", "categoria": "mondo-aperto", "categoriaNome": "Mondo aperto", "breve": "Il centro vero di Arenzano in 3D, da girare in libertà.", "descrizione": "Un gioco di strada nel centro vero di Arenzano: palazzi, vie con il loro nome, negozi, stazione, lungomare e porto presi da dati reali. Passeggi, compri, ti alleni in palestra, fai consegne. Oppure ti metti nei guai e scappi dai carabinieri. In treno si va a Cogoleto e a Genova.", "come": ["Gira per la città a piedi, in auto o in scooter.", "Entra nei negozi e nei luoghi con l'insegna per vedere cosa si può fare.", "Se ti metti nei guai salgono le stelle e arrivano i carabinieri.", "Lo scopo, per chi ne vuole uno: comprare casa in agenzia."], "segni": ["1 giocatore", "Da 12 anni", "Telefono in orizzontale", "Tocco", "Tastiera e mouse"], "nota": "Grafica in 3D: serve un telefono, un tablet o un computer recente e la connessione al primo avvio.", "inDue": false, "pagina": "giochi/arenzano-liberi-tutti/", "copertina": "giochi/arenzano-liberi-tutti/copertina.jpg"}]}</script>
+<script src="catalogo.js" defer></script>
+</body>
+</html>

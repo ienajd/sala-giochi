@@ -1,0 +1,1404 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="description" content="Occhio alla Lava! Il pavimento è lava: salta sulle rocce, schiva i vulcani, apri la cassaforte. Gioco 3D da browser.">
+<meta name="theme-color" content="#1a0f1f">
+<title>Occhio alla Lava!</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌋</text></svg>">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap">
+<style>
+/* Il gioco riempie lo schermo; sopra stanno il cruscotto (cuori, cibo, acqua, crediti) e un pannello alla volta. */
+:root{
+  --notte:#1a0f1f; --lava:#ff6b1a; --sole:#ffd23f; --crema:#fff3da; --inch:#1a1020;
+  --acqua:#35c9e8; --erba:#7ddc5a; --rosso:#ff4d5e; --velo:rgba(22,10,22,.72); --tenue:rgba(255,243,218,.78);
+  --display:"Lilita One","Arial Rounded MT Bold","Arial Black",sans-serif;
+  --testo:"Nunito",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:var(--notte);color:var(--crema);font-family:var(--testo);font-weight:600;overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#gioco{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* ---------- cruscotto ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;
+  padding:calc(env(safe-area-inset-top,0px) + 10px) max(12px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(12px,env(safe-area-inset-left,0px))}
+#hud>*{position:absolute}
+.hud-sx{top:inherit;left:max(12px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 10px);display:flex;flex-direction:column;gap:6px}
+.scheda{background:rgba(26,16,32,.72);border:2px solid rgba(255,243,218,.25);border-radius:14px;padding:6px 10px}
+#cuori{font-size:1.5rem;letter-spacing:2px;line-height:1.1}
+.barra{display:flex;align-items:center;gap:6px;font-size:1.05rem}
+.barra i{display:block;width:118px;height:13px;border-radius:8px;background:rgba(255,255,255,.16);overflow:hidden}
+.barra b{display:block;height:100%;width:100%;border-radius:8px;background:var(--erba);transition:width .25s}
+.barra.acqua b{background:var(--acqua)}
+.barra.poco b{background:var(--rosso);animation:lampo .5s infinite alternate}
+@keyframes lampo{to{opacity:.35}}
+.hud-centro{top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);text-align:center;width:min(36vw,340px)}
+#percorso{position:relative;height:12px;border-radius:8px;background:rgba(26,16,32,.72);border:2px solid rgba(255,243,218,.25)}
+#percorso b{display:block;height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,var(--lava),var(--sole))}
+#percorso span{position:absolute;right:-12px;top:-9px;font-size:1.1rem}
+#liv-nome{margin-top:5px;font-family:var(--display);font-size:1rem;text-shadow:0 2px 0 var(--inch)}
+.hud-dx{top:calc(env(safe-area-inset-top,0px) + 10px);right:max(12px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:8px}
+#crediti{font-family:var(--display);font-size:1.3rem;color:var(--sole)}
+#chiave{font-size:1.5rem;animation:dondola 1s infinite alternate ease-in-out}
+@keyframes dondola{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
+#b-pausa{pointer-events:auto;width:44px;height:44px;border-radius:12px;border:2px solid rgba(255,243,218,.35);background:rgba(26,16,32,.72);font-size:1.1rem}
+#attrezzi{left:max(12px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;gap:8px}
+.att{pointer-events:auto;position:relative;width:60px;height:60px;border-radius:14px;border:2px solid rgba(255,243,218,.35);
+  background:rgba(26,16,32,.72);display:grid;place-items:center;font-size:1.6rem;padding:0}
+.att b{position:absolute;right:-5px;top:-7px;min-width:22px;height:22px;border-radius:11px;background:var(--sole);color:var(--inch);
+  font-size:.8rem;font-weight:800;display:grid;place-items:center}
+.att kbd{position:absolute;left:4px;bottom:1px;font:800 .62rem var(--testo);opacity:.75}
+.att.vuoto{opacity:.42}
+.att.passivo{pointer-events:none}
+body.tocco #attrezzi{left:auto;right:max(12px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 150px);flex-direction:column}
+body.tocco .att kbd{display:none}
+
+#avviso{position:fixed;left:50%;top:22%;transform:translate(-50%,0);max-width:min(88vw,560px);text-align:center;pointer-events:none;
+  font-family:var(--display);font-size:clamp(1.15rem,3.4vw,1.7rem);line-height:1.2;color:var(--crema);
+  background:rgba(26,16,32,.82);border:3px solid var(--sole);border-radius:16px;padding:10px 18px;opacity:0;transition:opacity .25s}
+#avviso.su{opacity:1}
+
+/* ---------- comandi a tocco ---------- */
+#tocco{position:fixed;inset:0;pointer-events:none}
+#leva-zona{position:absolute;left:0;bottom:0;width:50%;height:62%;pointer-events:auto;touch-action:none}
+#leva{position:absolute;left:calc(env(safe-area-inset-left,0px) + 34px);bottom:calc(env(safe-area-inset-bottom,0px) + 34px);width:120px;height:120px;border-radius:50%;
+  background:rgba(255,243,218,.14);border:3px solid rgba(255,243,218,.4)}
+#leva i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px;border-radius:50%;background:rgba(255,243,218,.75)}
+#t-salta{position:absolute;right:calc(env(safe-area-inset-right,0px) + 26px);bottom:calc(env(safe-area-inset-bottom,0px) + 30px);width:112px;height:112px;border-radius:50%;
+  pointer-events:auto;touch-action:none;border:4px solid var(--inch);background:var(--sole);color:var(--inch);font-family:var(--display);font-size:1.25rem;box-shadow:0 6px 0 var(--inch)}
+#t-salta:active{transform:translateY(4px);box-shadow:0 2px 0 var(--inch)}
+
+/* ---------- pannelli ---------- */
+.velo{position:fixed;inset:0;display:flex;overflow-y:auto;background:var(--velo);touch-action:pan-y;
+  padding:calc(env(safe-area-inset-top,0px) + 18px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(16px,env(safe-area-inset-left,0px))}
+.pannello{margin:auto;width:100%;max-width:760px;display:flex;flex-direction:column;gap:16px}
+.pannello.piccolo{max-width:460px;align-items:center;text-align:center}
+h1,h2{font-family:var(--display);font-weight:400;margin:0;line-height:1.02;text-wrap:balance;color:var(--sole);
+  -webkit-text-stroke:6px var(--inch);paint-order:stroke fill}
+h1{font-size:clamp(2.4rem,9vw,4.6rem);color:var(--lava)}
+h1 span{color:var(--sole)}
+h2{font-size:clamp(1.9rem,7vw,3rem)}
+h3{font-family:var(--display);font-weight:400;font-size:1.15rem;margin:0;color:var(--sole)}
+p{margin:0;line-height:1.45}
+.sotto{font-size:1.05rem;max-width:58ch}
+.sotto b{color:var(--sole);font-weight:800}
+.gruppo{display:flex;flex-direction:column;gap:7px}
+.etichetta{font-size:.74rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--tenue)}
+.riga{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.seg{display:flex;border:3px solid var(--inch);border-radius:14px;overflow:hidden;box-shadow:0 4px 0 var(--inch)}
+.seg button{font-weight:800;font-size:1rem;padding:11px 16px;border:0;background:var(--crema);color:var(--inch)}
+.seg button+button{border-left:3px solid var(--inch)}
+.seg button[aria-pressed="true"]{background:var(--lava);color:#fff}
+.nota{font-size:.92rem;color:var(--tenue);min-height:1.4em}
+.colori{display:flex;gap:10px}
+.colori button{width:44px;height:44px;border-radius:50%;border:3px solid var(--inch);box-shadow:0 4px 0 var(--inch);padding:0}
+.colori button[aria-pressed="true"]{outline:4px solid var(--sole);outline-offset:2px}
+.passi{display:flex;align-items:center;gap:8px}
+.passi button{width:44px;height:44px;border-radius:12px;border:3px solid var(--inch);background:var(--crema);color:var(--inch);font-weight:800;font-size:1.1rem;box-shadow:0 4px 0 var(--inch)}
+.passi button:disabled{opacity:.35}
+.passi div{min-width:190px;text-align:center;font-family:var(--display);font-size:1.1rem}
+.passi small{display:block;font-family:var(--testo);font-size:.82rem;color:var(--tenue)}
+.tasto{font-family:var(--display);font-size:1.35rem;padding:13px 32px;border:3px solid var(--inch);border-radius:16px;
+  background:var(--sole);color:var(--inch);box-shadow:0 6px 0 var(--inch);transition:transform .08s,box-shadow .08s}
+.tasto:active{transform:translateY(4px);box-shadow:0 2px 0 var(--inch)}
+.tasto.secondo{background:var(--crema);font-size:1.02rem;padding:11px 20px}
+.tasto.piano{background:transparent;color:var(--tenue);border-color:rgba(255,243,218,.3);box-shadow:none;font-family:var(--testo);font-weight:800;font-size:.85rem;padding:8px 14px}
+.borsa{font-family:var(--display);font-size:1.3rem;color:var(--sole)}
+.lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 22px;font-size:.98rem}
+.lista p b{color:var(--sole);font-weight:800}
+.conto{display:grid;grid-template-columns:auto auto;gap:6px 22px;font-size:1.1rem;text-align:left}
+.conto b{color:var(--sole);font-weight:800;text-align:right}
+
+/* bottega */
+.banco{background:rgba(255,243,218,.08);border:2px solid rgba(255,243,218,.22);border-radius:16px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.banco .gem{font-size:1rem}
+.banco .gem small{color:var(--tenue)}
+.merci{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px}
+.merce{background:var(--crema);color:var(--inch);border:3px solid var(--inch);border-radius:16px;box-shadow:0 5px 0 var(--inch);padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px}
+.merce .ico{font-size:2rem;line-height:1}
+.merce .nome{font-family:var(--display);font-size:1.08rem;line-height:1.05}
+.merce .desc{font-size:.84rem;line-height:1.3;flex:1}
+.merce .hai{font-size:.78rem;font-weight:800;opacity:.7}
+.merce button{margin-top:4px;font-family:var(--display);font-size:1rem;padding:8px 10px;border-radius:12px;border:3px solid var(--inch);background:var(--sole);color:var(--inch)}
+.merce button:disabled{background:#d9d2c0;opacity:.6;cursor:default}
+.merce button.fatto{background:var(--erba)}
+
+@media (max-width:640px){
+  .lista{grid-template-columns:1fr}
+  .barra i{width:84px}
+  .hud-centro{width:30vw}
+  #liv-nome{font-size:.82rem}
+  #cuori{font-size:1.2rem}
+}
+</style>
+</head>
+<body>
+<canvas id="gioco" aria-label="Campo di gioco"></canvas>
+
+<div id="hud" hidden>
+  <div class="hud-sx scheda">
+    <div id="cuori" aria-label="Vite"></div>
+    <div class="barra" id="r-cibo" title="Cibo"><span>🍎</span><i><b id="b-cibo"></b></i></div>
+    <div class="barra acqua" id="r-acqua" title="Acqua"><span>💧</span><i><b id="b-acqua"></b></i></div>
+  </div>
+  <div class="hud-centro"><div id="percorso"><b></b><span>🏁</span></div><div id="liv-nome"></div></div>
+  <div class="hud-dx"><div id="chiave" hidden>🗝️</div><div class="scheda" id="crediti">🪙 <span>0</span></div><button id="b-pausa" aria-label="Pausa">⏸</button></div>
+  <div id="attrezzi">
+    <button class="att" id="a-molle" title="Scarpe a molla (tasto E)"><span>🦘</span><b>0</b><kbd>E</kbd></button>
+    <button class="att" id="a-ghiaccio" title="Ghiacciolo magico (tasto Q)"><span>❄️</span><b>0</b><kbd>Q</kbd></button>
+    <div class="att passivo" id="a-scudo" title="Scudo a bolla: si usa da solo"><span>🛡️</span><b>0</b></div>
+    <div class="att passivo" id="a-merenda" title="Merenda di scorta: si usa da sola"><span>🥪</span><b>0</b></div>
+  </div>
+</div>
+<div id="tocco" hidden><div id="leva-zona"><div id="leva"><i></i></div></div><button id="t-salta">SALTA</button></div>
+<div id="avviso" role="status"></div>
+
+<div class="velo" id="s-menu">
+  <div class="pannello">
+    <h1>Occhio <span>alla Lava!</span></h1>
+    <p class="sotto">Il vulcano Brontolone si è svegliato e <b>il pavimento è diventato lava</b>. Salta di roccia in roccia, schiva le palle di fuoco e arriva alla <b>cassaforte</b>: dentro ci sono la chiave del portone e i gioielli.</p>
+    <div class="gruppo"><span class="etichetta">Difficoltà</span>
+      <div class="riga"><div class="seg" id="m-dif">
+        <button data-d="facile">Facile</button><button data-d="normale">Normale</button><button data-d="difficile">Difficile</button>
+      </div></div>
+      <p class="nota" id="m-dif-nota"></p>
+    </div>
+    <div class="riga" style="gap:26px">
+      <div class="gruppo"><span class="etichetta">Colore dell'esploratore</span><div class="colori" id="m-colori"></div></div>
+      <div class="gruppo"><span class="etichetta">Livello</span>
+        <div class="passi"><button id="m-liv-giu" aria-label="Livello prima">◀</button><div id="m-liv"></div><button id="m-liv-su" aria-label="Livello dopo">▶</button></div>
+      </div>
+    </div>
+    <div class="riga">
+      <button class="tasto" id="m-gioca">GIOCA ▶</button>
+      <button class="tasto secondo" id="m-bottega">🛒 Bottega</button>
+      <button class="tasto secondo" id="m-come">❓ Come si gioca</button>
+      <span class="borsa">🪙 <span id="m-crediti">0</span></span>
+    </div>
+    <div class="riga">
+      <button class="tasto piano" id="m-suoni"></button>
+      <button class="tasto piano" id="m-musica"></button>
+      <button class="tasto piano" id="m-azzera">Ricomincia da capo</button>
+    </div>
+  </div>
+</div>
+
+<div class="velo" id="s-come" hidden>
+  <div class="pannello">
+    <h2>Come si gioca</h2>
+    <div class="lista">
+      <p>🕹️ <b>Muoviti</b> con le frecce o con WASD. Su telefono e tablet: la leva a sinistra.</p>
+      <p>⬆️ <b>Salta</b> con la barra spaziatrice. Su telefono: il tasto SALTA.</p>
+      <p>🌋 <b>Non toccare la lava!</b> Hai 3 cuori. Se cadi riparti dall'ultima bandiera.</p>
+      <p>🔴 <b>Cerchi rossi</b>: lì sta per cadere una palla di fuoco. Scappa!</p>
+      <p>🍎💧 <b>Mele e borracce</b>: tengono piene le barre di cibo e acqua. Se una si svuota perdi un cuore.</p>
+      <p>🪙 <b>Monete</b>: sono i crediti da spendere alla bottega.</p>
+      <p>🟦 <b>Rocce azzurre</b> si muovono. <b>Rocce chiare</b> franano: non fermarti!</p>
+      <p>🗝️ In fondo c'è la <b>cassaforte</b>: prendi la chiave, apri il portone ed entra nel portale.</p>
+      <p>💎 I <b>gioielli</b> si vendono alla bottega in cambio di crediti.</p>
+      <p>🦘 <b>E</b> = scarpe a molla · ❄️ <b>Q</b> = ghiacciolo magico · <b>P</b> = pausa.</p>
+    </div>
+    <div class="riga"><button class="tasto" id="c-ok">Ho capito!</button></div>
+  </div>
+</div>
+
+<div class="velo" id="s-bottega" hidden>
+  <div class="pannello">
+    <div class="riga" style="justify-content:space-between"><h2>La Bottega</h2><span class="borsa">🪙 <span id="bt-crediti">0</span></span></div>
+    <div class="banco"><h3>I tuoi gioielli</h3><span id="bt-gemme"></span><button class="tasto secondo" id="bt-vendi"></button></div>
+    <div class="merci" id="bt-lista"></div>
+    <div class="riga"><button class="tasto" id="bt-avanti"></button><button class="tasto secondo" id="bt-menu">Menu</button></div>
+  </div>
+</div>
+
+<div class="velo" id="s-pausa" hidden>
+  <div class="pannello piccolo">
+    <h2>Pausa</h2>
+    <button class="tasto" id="p-riprendi">Riprendi ▶</button>
+    <button class="tasto secondo" id="p-rifai">Ricomincia il livello</button>
+    <button class="tasto secondo" id="p-menu">Torna al menu</button>
+  </div>
+</div>
+
+<div class="velo" id="s-vinto" hidden>
+  <div class="pannello piccolo">
+    <h2>Livello superato!</h2>
+    <p class="sotto" id="v-testo"></p>
+    <div class="conto" id="v-conto"></div>
+    <button class="tasto" id="v-bottega">🛒 Alla bottega</button>
+    <button class="tasto secondo" id="v-avanti">Livello successivo ▶</button>
+  </div>
+</div>
+
+<div class="velo" id="s-perso" hidden>
+  <div class="pannello piccolo">
+    <h2>Ahi, che scottata!</h2>
+    <p class="sotto">Hai finito i cuori. Niente paura: gli attrezzi che avevi usato in questo livello ti tornano in tasca.</p>
+    <button class="tasto" id="x-rifai">Riprova ▶</button>
+    <button class="tasto secondo" id="x-bottega">🛒 Alla bottega</button>
+    <button class="tasto secondo" id="x-menu">Menu</button>
+  </div>
+</div>
+
+<div class="velo" id="s-finale" hidden>
+  <div class="pannello piccolo">
+    <h2>🏆 Hai domato Brontolone!</h2>
+    <p class="sotto">Hai superato tutti gli 8 livelli: sei il <b>re del vulcano</b>. Da adesso ci sono i livelli extra, sempre più lunghi.</p>
+    <button class="tasto" id="f-bottega">🛒 Alla bottega</button>
+    <button class="tasto secondo" id="f-menu">Menu</button>
+  </div>
+</div>
+
+<div class="velo" id="s-errore" hidden>
+  <div class="pannello piccolo"><h2>Ops!</h2><p class="sotto">Il gioco non riesce a partire. Ricarica la pagina o prova con un altro browser.</p></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+
+/* ============ numeri del gioco ============ */
+const VEL = 6.2, SALTO = 9.8, GRAV = 25, RAG = 0.35;
+const DIF = {
+  facile:    { nome:'Facile',    id:0, gapMin:1.1, gapMax:2.1, rMin:2.1, rMax:2.8, lung:.8,  band:4, fame:80, eruz:10,  volo:3.1, bombe:0, gemme:0,
+               nota:'Rocce grandi e vicine, vulcani pigri, tante bandiere.' },
+  normale:   { nome:'Normale',   id:1, gapMin:1.6, gapMax:2.8, rMin:1.8, rMax:2.5, lung:1,   band:6, fame:55, eruz:7.5, volo:2.6, bombe:0, gemme:1,
+               nota:'La sfida giusta. Nella cassaforte c\'è un gioiello in più.' },
+  difficile: { nome:'Difficile', id:2, gapMin:2.2, gapMax:3.5, rMin:1.5, rMax:2.2, lung:1.2, band:8, fame:42, eruz:5.5, volo:2.2, bombe:1, gemme:2,
+               nota:'Rocce piccole e lontane, vulcani scatenati. Due gioielli in più.' },
+};
+const NOMI = ['La Prima Colata','Rocce Ballerine','Il Sentiero che Frana','Notte di Scintille','La Gola del Drago','Pioggia di Fuoco','Il Cuore del Vulcano','La Bocca di Brontolone'];
+const TEMI = [
+  { alto:0x1c1030, basso:0x6a2230 }, { alto:0x2b1016, basso:0x8a3a18 },
+  { alto:0x0a1230, basso:0x33224e }, { alto:0x2a1a0c, basso:0x7a4a14 },
+];
+const COLORI = [0x2f7de1, 0xe8433a, 0x34b356, 0x9455e0];
+const GEMME = {
+  rubino:   { nome:'Rubino',   val:15, col:0xff2d55, ico:'🔴' },
+  smeraldo: { nome:'Smeraldo', val:25, col:0x22d66b, ico:'🟢' },
+  diamante: { nome:'Diamante', val:40, col:0x9fe8ff, ico:'💎' },
+};
+const CATALOGO = [
+  { id:'molle',    ico:'🦘', nome:'Scarpe a molla',    desc:'3 super salti: voli in alto e in lungo. Tasto E.', prezzo:30, tipo:'cons', qta:3 },
+  { id:'ghiaccio', ico:'❄️', nome:'Ghiacciolo magico', desc:'Congela lava e vulcani per 8 secondi: sulla lava ci cammini! Tasto Q.', prezzo:40, tipo:'cons', qta:1 },
+  { id:'scudo',    ico:'🛡️', nome:'Scudo a bolla',     desc:'Ti salva una volta da una palla di fuoco o da un tuffo nella lava. Si usa da solo.', prezzo:35, tipo:'cons', qta:1 },
+  { id:'merenda',  ico:'🥪', nome:'Merenda di scorta', desc:'Panino e borraccia: quando hai fame o sete si usano da soli.', prezzo:20, tipo:'cons', qta:1 },
+  { id:'calamita', ico:'🧲', nome:'Calamita',          desc:'Le monete vicine volano da te. Vale per sempre.', prezzo:120, tipo:'perm' },
+  { id:'mantello', ico:'🪂', nome:'Mantello aliante',  desc:'In aria tieni premuto SALTA e scendi piano piano. Vale per sempre.', prezzo:180, tipo:'perm' },
+  { id:'cuore',    ico:'❤️', nome:'Cuore in più',      desc:'Un cuore in più a ogni livello, fino a 5.', prezzo:150, tipo:'cuore' },
+  { id:'pompiere', ico:'⛑️', nome:'Elmo da pompiere',  desc:'Rosso fuoco, per fare bella figura.', prezzo:40, tipo:'cappello' },
+  { id:'elica',    ico:'🚁', nome:'Cappello con elica', desc:'L\'elica gira davvero.', prezzo:70, tipo:'cappello' },
+  { id:'corona',   ico:'👑', nome:'Corona del vulcano', desc:'Solo per veri re e regine della lava.', prezzo:110, tipo:'cappello' },
+];
+
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v)), lerp = (a,b,t) => a + (b-a)*t;
+const avvicina = (a,b,d) => a < b ? Math.min(a+d, b) : Math.max(a-d, b);
+function rng(seme){ let a = seme>>>0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a>>>15, 1|a); t = t + Math.imul(t ^ t>>>7, 61|t) ^ t; return ((t ^ t>>>14)>>>0) / 4294967296; }; }
+function angVerso(a,b,t){ const d = ((b-a+Math.PI) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI) - Math.PI; return a + d*Math.min(1,t); }
+
+/* ============ salvataggio ============ */
+const CHIAVE_SALVA = 'occhio-alla-lava-v1';
+const NUOVO = () => ({ crediti:0, gemme:{rubino:0,smeraldo:0,diamante:0}, molle:2, ghiaccio:0, scudo:0, merenda:0,
+  calamita:false, mantello:false, cuoriMax:3, cappelli:[], cappello:null, sbloccato:1, dif:'normale', colore:0, suoni:true, musica:true, finito:false });
+let S = NUOVO();
+try { const j = JSON.parse(localStorage.getItem(CHIAVE_SALVA) || 'null'); if (j) { S = Object.assign(NUOVO(), j); S.gemme = Object.assign(NUOVO().gemme, j.gemme || {}); } } catch(e){}
+if (!DIF[S.dif]) S.dif = 'normale';
+function salva(){ try { localStorage.setItem(CHIAVE_SALVA, JSON.stringify(S)); } catch(e){} }
+
+/* ============ suoni (fatti al volo, niente file) ============ */
+let AC = null, uscita = null, rumore = null;
+function audio(){
+  if (!AC) { try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    uscita = AC.createGain(); uscita.gain.value = .55; uscita.connect(AC.destination);
+    rumore = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = rumore.getChannelData(0); for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+  } catch(e){ AC = null; } }
+  if (AC && AC.state === 'suspended') AC.resume();
+}
+function nota(f, dur, tipo, vol, f2, rit, forza){
+  if (!AC || (!S.suoni && !forza)) return;
+  const t = AC.currentTime + (rit||0), o = AC.createOscillator(), g = AC.createGain();
+  o.type = tipo || 'sine'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t+dur);
+  g.gain.setValueAtTime(vol || .2, t); g.gain.exponentialRampToValueAtTime(.001, t+dur);
+  o.connect(g); g.connect(uscita); o.start(t); o.stop(t+dur+.03);
+}
+function soffio(dur, vol, f, f2, rit){
+  if (!AC || !S.suoni) return;
+  const t = AC.currentTime + (rit||0), s = AC.createBufferSource(), fl = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = rumore; s.loop = true; fl.type = 'lowpass'; fl.frequency.setValueAtTime(f, t); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t+dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t+dur);
+  s.connect(fl); fl.connect(g); g.connect(uscita); s.start(t); s.stop(t+dur+.03);
+}
+const SUONO = {
+  salto(){ nota(320,.16,'square',.09,640); },
+  molla(){ nota(180,.4,'sawtooth',.12,1300); nota(360,.4,'square',.05,2000); },
+  atterra(){ soffio(.09,.12,500,200); },
+  moneta(){ nota(988,.07,'square',.08); nota(1319,.16,'square',.08,null,.07); },
+  gnam(){ nota(420,.08,'triangle',.2,300); nota(520,.1,'triangle',.2,360,.1); },
+  glu(){ nota(300,.1,'sine',.25,600); nota(360,.1,'sine',.25,720,.12); },
+  cuore(){ nota(523,.1,'triangle',.2); nota(659,.1,'triangle',.2,null,.1); nota(784,.2,'triangle',.2,null,.2); },
+  gemma(){ nota(1568,.1,'sine',.15); nota(2093,.25,'sine',.15,null,.08); },
+  ahi(){ nota(300,.3,'sawtooth',.2,90); soffio(.25,.2,1200,300); },
+  lava(){ soffio(.9,.35,3000,300); nota(160,.5,'sawtooth',.15,50); },
+  rombo(){ soffio(1.3,.5,160,60); nota(55,1.1,'sawtooth',.18,38); },
+  botto(){ soffio(.45,.45,900,120); nota(110,.3,'square',.12,40); },
+  bandiera(){ nota(659,.1,'square',.09); nota(880,.2,'square',.09,null,.1); },
+  frana(){ soffio(.6,.3,400,90); },
+  gelo(){ nota(1800,.6,'sine',.12,300); soffio(.6,.15,6000,1500); },
+  scudo(){ nota(500,.3,'sine',.2,1000); },
+  chiave(){ [784,988,1175,1568].forEach((f,i) => nota(f,.16,'square',.09,null,i*.09)); },
+  portone(){ soffio(.8,.3,300,120); nota(98,.7,'sawtooth',.12,65); },
+  vittoria(){ [523,659,784,1047,784,1047,1319].forEach((f,i) => nota(f,.22,'square',.1,null,i*.13)); },
+  perso(){ [392,330,262,196].forEach((f,i) => nota(f,.3,'triangle',.18,null,i*.2)); },
+  cassa(){ nota(1319,.08,'square',.09); nota(1760,.2,'square',.09,null,.08); },
+  no(){ nota(160,.18,'square',.1,120); },
+  tic(){ nota(660,.05,'square',.06); },
+};
+// musichetta: un giro di 32 passi, sempre lo stesso
+const MUS = { passo:0, prox:0 };
+const SCALA = [220, 261.6, 293.7, 329.6, 392, 440, 523.3, 587.3];
+const MEL = [0,2,4,2,5,4,2,1, 0,2,4,5,7,5,4,2, 3,5,4,2,3,2,1,0, 2,4,5,4,2,1,0,-1];
+const BAS = [110,110,130.8,146.8,110,110,98,98];
+setInterval(() => {
+  if (!AC || AC.state !== 'running') return;
+  if (MUS.prox < AC.currentTime - .5) MUS.prox = AC.currentTime + .05;
+  while (MUS.prox < AC.currentTime + .3) {
+    const i = MUS.passo % 32;
+    if (S.musica && app.modo === 'gioco') {
+      const r = MUS.prox - AC.currentTime;
+      if (MEL[i] >= 0) nota(SCALA[MEL[i]], .19, 'triangle', .045, null, r, true);
+      if (i % 4 === 0) nota(BAS[i/4|0], .42, 'sine', .09, null, r, true);
+    }
+    MUS.passo++; MUS.prox += .2;
+  }
+}, 80);
+
+/* ============ motore 3D disegnato a mano ============ */
+// Niente scheda video e niente librerie: ogni oggetto è fatto di facce piatte, palle e linee.
+// A ogni fotogramma si calcola dove cadono sullo schermo e si dipingono dalla più lontana alla più vicina.
+const tela = $('#gioco'), ctx = tela.getContext('2d', { alpha:false });
+let W = 0, H = 0, CX = 0, CY = 0, FOC = 1, TANH = 1, ritratto = false;
+const cam = { x:0, y:5, z:8, fx:0, fy:0, fz:-1, rx:1, ry:0, rz:0, ux:0, uy:1, uz:0 };
+const VICINO = .25, NEB0 = 26, NEB1 = 78;
+let NEB = [106, 34, 48], NEB_CSS = 'rgb(106,34,48)', CIELO_CSS = 'rgb(28,16,48)';
+const LX = .47, LY = .78, LZ = .41;
+let gelo01 = 0;
+function misura(){
+  const cw = window.innerWidth, ch = window.innerHeight, s = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(9e5/(cw*ch)));
+  W = tela.width = Math.max(2, Math.round(cw*s)); H = tela.height = Math.max(2, Math.round(ch*s)); CX = W/2; CY = H/2;
+  if (typeof telaLava !== 'undefined'){ telaLava.width = Math.ceil(W/RID); telaLava.height = Math.ceil(H/RID); }
+  ritratto = cw/ch < .85; FOC = CY/Math.tan((ritratto ? 74 : 60)*Math.PI/360); TANH = CX/FOC; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+}
+window.addEventListener('resize', misura);
+function guarda(px, py, pz, tx, ty, tz){
+  let fx = tx-px, fy = ty-py, fz = tz-pz; const l = Math.hypot(fx, fy, fz) || 1; fx /= l; fy /= l; fz /= l;
+  let rx = -fz, rz = fx; const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;
+  Object.assign(cam, { x:px, y:py, z:pz, fx, fy, fz, rx, ry:0, rz, ux:-rz*fy, uy:rz*fx - rx*fz, uz:rx*fy });
+}
+
+// matrici 3x4: spostano, girano, ingrandiscono
+const mTr = (x,y,z) => [1,0,0,x, 0,1,0,y, 0,0,1,z];
+const mSc = (x,y,z) => [x,0,0,0, 0,(y === undefined ? x : y),0,0, 0,0,(z === undefined ? x : z),0];
+const mRx = a => { const c = Math.cos(a), s = Math.sin(a); return [1,0,0,0, 0,c,-s,0, 0,s,c,0]; };
+const mRy = a => { const c = Math.cos(a), s = Math.sin(a); return [c,0,s,0, 0,1,0,0, -s,0,c,0]; };
+const mRz = a => { const c = Math.cos(a), s = Math.sin(a); return [c,-s,0,0, s,c,0,0, 0,0,1,0]; };
+function mMul(a, b){ return [
+  a[0]*b[0]+a[1]*b[4]+a[2]*b[8], a[0]*b[1]+a[1]*b[5]+a[2]*b[9], a[0]*b[2]+a[1]*b[6]+a[2]*b[10], a[0]*b[3]+a[1]*b[7]+a[2]*b[11]+a[3],
+  a[4]*b[0]+a[5]*b[4]+a[6]*b[8], a[4]*b[1]+a[5]*b[5]+a[6]*b[9], a[4]*b[2]+a[5]*b[6]+a[6]*b[10], a[4]*b[3]+a[5]*b[7]+a[6]*b[11]+a[7],
+  a[8]*b[0]+a[9]*b[4]+a[10]*b[8], a[8]*b[1]+a[9]*b[5]+a[10]*b[9], a[8]*b[2]+a[9]*b[6]+a[10]*b[10], a[8]*b[3]+a[9]*b[7]+a[10]*b[11]+a[11] ]; }
+const mCat = (...m) => m.reduce(mMul);
+
+// forme di base. Le facce hanno i vertici in senso antiorario visti da fuori.
+const rgb = h => [(h>>16)&255, (h>>8)&255, h&255];
+const colore = c => Array.isArray(c) ? c : rgb(c);
+function gBox(w, h, d, c, o){
+  const x = w/2, y = h/2, z = d/2, C = colore(c);
+  return { v:[-x,-y,-z, x,-y,-z, -x,y,-z, x,y,-z, -x,-y,z, x,-y,z, -x,y,z, x,y,z],
+    f:[[1,3,7,5],[0,4,6,2],[2,6,7,3],[0,1,5,4],[4,5,7,6],[0,2,3,1]].map(i => Object.assign({ k:'p', i, c:C }, o)) };
+}
+function gCil(rt, rb, h, n, c, o){
+  const g = { v:[], f:[] }, C = colore(c);
+  for (const [r, y] of [[rt, h/2], [rb, -h/2]]) for (let i=0;i<n;i++){ const a = i*2*Math.PI/n; g.v.push(Math.sin(a)*r, y, Math.cos(a)*r); }
+  for (let i=0;i<n;i++){ const j = (i+1)%n; g.f.push(Object.assign({ k:'p', i:[i, n+i, n+j, j], c:C }, o)); }
+  const giro = [...Array(n).keys()];
+  if (rt > 0) g.f.push(Object.assign({ k:'p', i:giro, c:C }, o));
+  if (rb > 0) g.f.push(Object.assign({ k:'p', i:giro.map(i => 2*n-1-i), c:C }, o));
+  return g;
+}
+function gCono(r, h, n, c, o){
+  const g = { v:[0,h,0], f:[] }, C = colore(c);
+  for (let i=0;i<n;i++){ const a = i*2*Math.PI/n; g.v.push(Math.sin(a)*r, 0, Math.cos(a)*r); }
+  for (let i=0;i<n;i++) g.f.push(Object.assign({ k:'p', i:[0, 1+i, 1+(i+1)%n], c:C }, o));
+  return g;
+}
+function gCupola(r, n, c, o){
+  const g = { v:[], f:[] }, C = colore(c), A = 3;
+  for (let j=0;j<A;j++){ const f = j*Math.PI/2/A; for (let i=0;i<n;i++){ const a = i*2*Math.PI/n; g.v.push(Math.sin(a)*r*Math.cos(f), r*Math.sin(f), Math.cos(a)*r*Math.cos(f)); } }
+  g.v.push(0, r, 0);
+  for (let j=0;j<A-1;j++) for (let i=0;i<n;i++){ const k = (i+1)%n; g.f.push(Object.assign({ k:'p', i:[(j+1)*n+i, j*n+i, j*n+k, (j+1)*n+k], c:C }, o)); }
+  for (let i=0;i<n;i++) g.f.push(Object.assign({ k:'p', i:[A*n, (A-1)*n+i, (A-1)*n+(i+1)%n], c:C }, o));
+  return g;
+}
+function gOtta(r, h, c, o){
+  const C = colore(c), g = { v:[0,h,0, 0,-h,0, 0,0,r, r,0,0, 0,0,-r, -r,0,0], f:[] };
+  for (let i=0;i<4;i++){ const a = 2+i, b = 2+(i+1)%4; g.f.push(Object.assign({ k:'p', i:[0,a,b], c:C }, o), Object.assign({ k:'p', i:[1,b,a], c:C.map(v => v*.8) }, o)); }
+  return g;
+}
+const gSfera = (r, c, o) => ({ v:[0,0,0], f:[Object.assign({ k:'s', i:[0], r, c:colore(c) }, o)] });
+function gPoli(pt, c, o){ const g = { v:[], f:[] }; for (const p of pt) g.v.push(p[0], p[1], p[2]); g.f.push(Object.assign({ k:'p', i:pt.map((_, i) => i), c:colore(c) }, o)); return g; }
+function gLinea(pt, w, c, o){ const g = { v:[], f:[] }; for (const p of pt) g.v.push(p[0], p[1], p[2]); g.f.push(Object.assign({ k:'l', i:pt.map((_, i) => i), w, c:colore(c) }, o)); return g; }
+const cerchio = (r, n, y, ax) => [...Array(n).keys()].map(i => { const a = i*2*Math.PI/n; return ax === 'z' ? [Math.sin(a)*r, y + Math.cos(a)*r, 0] : [Math.sin(a)*r, y, Math.cos(a)*r]; });
+function agg(g, a, M){
+  const base = g.v.length/3, v = a.v, s = M ? Math.hypot(M[0], M[4], M[8]) : 1;
+  for (let i=0;i<v.length;i+=3){ const x = v[i], y = v[i+1], z = v[i+2];
+    if (M) g.v.push(M[0]*x+M[1]*y+M[2]*z+M[3], M[4]*x+M[5]*y+M[6]*z+M[7], M[8]*x+M[9]*y+M[10]*z+M[11]); else g.v.push(x, y, z); }
+  for (const f of a.f){ const n = Object.assign({}, f); n.i = f.i.map(k => k + base); if (f.r) n.r = f.r*s; if (f.w) n.w = f.w*s; g.f.push(n); }
+  return g;
+}
+const vuota = () => ({ v:[], f:[] });
+// una "rete" è una forma pronta da disegnare, con la sua posizione
+function rete(g, M){
+  const n = g.v.length, m = { v:Float32Array.from(g.v), w:new Float32Array(n), c:new Float32Array(n), M:M || null, sc:1, nascosta:false };
+  m.f = g.f.map(f => Object.assign({}, f, { m })); return m;
+}
+
+/* ---- disegno ---- */
+const lista = [];
+function css(r, g, b){ return 'rgb(' + (r > 255 ? 255 : r < 0 ? 0 : r|0) + ',' + (g > 255 ? 255 : g < 0 ? 0 : g|0) + ',' + (b > 255 ? 255 : b < 0 ? 0 : b|0) + ')'; }
+function disegnaStrato(reti, neb){
+  lista.length = 0;
+  for (const m of reti){
+    if (m.nascosta) continue;
+    const v = m.v, w = m.w, c = m.c, M = m.M;
+    for (let i=0;i<v.length;i+=3){
+      let x = v[i], y = v[i+1], z = v[i+2];
+      if (M){ const X = M[0]*x+M[1]*y+M[2]*z+M[3], Y = M[4]*x+M[5]*y+M[6]*z+M[7]; z = M[8]*x+M[9]*y+M[10]*z+M[11]; x = X; y = Y; }
+      w[i] = x; w[i+1] = y; w[i+2] = z;
+      const dx = x-cam.x, dy = y-cam.y, dz = z-cam.z;
+      c[i] = dx*cam.rx + dz*cam.rz; c[i+1] = dx*cam.ux + dy*cam.uy + dz*cam.uz; c[i+2] = dx*cam.fx + dy*cam.fy + dz*cam.fz;
+    }
+    for (const f of m.f){
+      if (f.off) continue;
+      const i = f.i; let r = f.c[0], g = f.c[1], b = f.c[2];
+      if (f.k === 'p'){
+        const p = i[0]*3, q = i[1]*3, t = i[2]*3;
+        const ux = w[q]-w[p], uy = w[q+1]-w[p+1], uz = w[q+2]-w[p+2], vx = w[t]-w[p], vy = w[t+1]-w[p+1], vz = w[t+2]-w[p+2];
+        let nx = uy*vz - uz*vy, ny = uz*vx - ux*vz, nz = ux*vy - uy*vx;
+        if (nx*(w[p]-cam.x) + ny*(w[p+1]-cam.y) + nz*(w[p+2]-cam.z) >= 0){ if (!f.due) continue; nx = -nx; ny = -ny; nz = -nz; }
+        let s = 0, davanti = false; for (let k=0;k<i.length;k++){ const z = c[i[k]*3+2]; s += z; if (z >= VICINO) davanti = true; }
+        if (!davanti) continue;
+        f._d = s/i.length + (f.b || 0);
+        if (!f.em){ const l = Math.hypot(nx, ny, nz) || 1, lam = Math.max(0, (nx*LX + ny*LY + nz*LZ)/l)*.44, h = ny/l*.5 + .5;
+          r *= (1 - .18*h)*.8 + lam; g *= (.5 + .36*h)*.8 + lam; b *= (.2 + .8*h)*.8 + lam; }
+      } else if (f.k === 's'){
+        const z = c[i[0]*3+2]; if (z < VICINO + .05) continue; f._d = z + (f.b || 0);
+        if (!f.em && !f.pi){ f._s2 = css(lerp(r*1.3 + 18, NEB[0], neb), lerp(g*1.3 + 18, NEB[1], neb), lerp(b*1.3 + 18, NEB[2], neb)); f._s3 = css(lerp(r*.66, NEB[0], neb), lerp(g*.5, NEB[1], neb), lerp(b*.42, NEB[2], neb)); }
+        else if (f.em && !f.pi){ f._s2 = css(r*1.2 + 70, g*1.2 + 70, b*1.2 + 70); f._s3 = css(r*.85, g*.6, b*.5); }
+      } else {
+        let s = 0, ok = true; for (let k=0;k<i.length;k++){ const z = c[i[k]*3+2]; s += z; if (z < VICINO) ok = false; }
+        if (!ok) continue; f._d = s/i.length + (f.b || 0);
+      }
+      if (neb > 0){ r += (NEB[0]-r)*neb; g += (NEB[1]-g)*neb; b += (NEB[2]-b)*neb; }
+      f._s = css(r, g, b); lista.push(f);
+    }
+  }
+  lista.sort((a, b) => b._d - a._d);
+  for (const f of lista) traccia(f, neb);
+}
+function traccia(f, neb){
+  const m = f.m, c = m.c, idx = f.i, n = idx.length;
+  if (f.k === 'p'){
+    let dentro = 0; for (let k=0;k<n;k++) if (c[idx[k]*3+2] >= VICINO) dentro++;
+    ctx.beginPath();
+    if (dentro === n){
+      for (let k=0;k<n;k++){ const o = idx[k]*3, s = FOC/c[o+2], X = CX + c[o]*s, Y = CY - c[o+1]*s; if (k) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); }
+    } else {
+      let primo = true;
+      for (let k=0;k<n;k++){
+        const o = idx[k]*3, p = idx[(k+1)%n]*3, z0 = c[o+2], z1 = c[p+2];
+        if (z0 >= VICINO){ const s = FOC/z0, X = CX + c[o]*s, Y = CY - c[o+1]*s; if (primo) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); primo = false; }
+        if ((z0 >= VICINO) !== (z1 >= VICINO)){ const t = (VICINO-z0)/(z1-z0), s = FOC/VICINO, X = CX + (c[o] + (c[p]-c[o])*t)*s, Y = CY - (c[o+1] + (c[p+1]-c[o+1])*t)*s;
+          if (primo) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); primo = false; }
+      }
+    }
+    ctx.closePath();
+    let stile = f._s;
+    if (f.gl && dentro === n){
+      // fianco di una roccia: in basso prende il riflesso della lava (o del ghiaccio)
+      const a = idx[0]*3, b = idx[1]*3, d = idx[2]*3, e = idx[3]*3, sa = FOC/c[a+2], sb = FOC/c[b+2], sd = FOC/c[d+2], se = FOC/c[e+2];
+      const g = ctx.createLinearGradient((CX + c[a]*sa + CX + c[e]*se)/2, (CY - c[a+1]*sa + CY - c[e+1]*se)/2, (CX + c[b]*sb + CX + c[d]*sd)/2, (CY - c[b+1]*sb + CY - c[d+1]*sd)/2);
+      const alt = m.M ? m.M[7] : 2, da = clamp(1 - 1.5/Math.max(alt, .2), 0, .85);
+      g.addColorStop(0, stile); g.addColorStop(da, stile);
+      g.addColorStop(1, css(lerp(lerp(255, 150, gelo01), NEB[0], neb), lerp(lerp(120, 215, gelo01), NEB[1], neb), lerp(lerp(30, 255, gelo01), NEB[2], neb)));
+      ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = stile; ctx.lineWidth = .6; ctx.stroke(); return;
+    }
+    ctx.fillStyle = stile;
+    if (f.a){ ctx.globalAlpha = f.a; ctx.fill(); ctx.globalAlpha = 1; }
+    else { ctx.fill(); ctx.strokeStyle = stile; ctx.lineWidth = 1; ctx.stroke(); }
+  } else if (f.k === 's'){
+    const o = idx[0]*3, s = FOC/c[o+2], X = CX + c[o]*s, Y = CY - c[o+1]*s, R = f.r*m.sc*s; if (R < .4) return;
+    ctx.beginPath(); ctx.arc(X, Y, R, 0, 6.2832);
+    if (R < 3.5 || f.pi) ctx.fillStyle = f._s;
+    else { const g = ctx.createRadialGradient(X - R*.3, Y - R*.38, R*.06, X, Y, R); g.addColorStop(0, f._s2); g.addColorStop(.5, f._s); g.addColorStop(1, f._s3); ctx.fillStyle = g; }
+    if (f.a){ ctx.globalAlpha = f.a; ctx.fill(); ctx.globalAlpha = 1; } else ctx.fill();
+  } else {
+    ctx.beginPath(); let zs = 0;
+    for (let k=0;k<n;k++){ const o = idx[k]*3, s = FOC/c[o+2], X = CX + c[o]*s, Y = CY - c[o+1]*s; zs += c[o+2]; if (k) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); }
+    if (f.ch) ctx.closePath();
+    ctx.strokeStyle = f._s; ctx.lineWidth = Math.max(1, f.w*m.sc*FOC/(zs/n));
+    if (f.a){ ctx.globalAlpha = f.a; ctx.stroke(); ctx.globalAlpha = 1; } else ctx.stroke();
+  }
+}
+// decide se un oggetto si vede e in che ordine va dipinto
+const visibili = [];
+function metti(o){
+  const dx = o.x-cam.x, dy = o.y-cam.y, dz = o.z-cam.z, zc = dx*cam.fx + dy*cam.fy + dz*cam.fz, R = o.rag || 1, lontano = o.lontano || 82;
+  if (zc + R < VICINO || zc - R > lontano) return;
+  if (Math.abs(dx*cam.rx + dz*cam.rz) - R > (zc + R)*TANH + 1) return;
+  o._z = zc; o._k = zc + (o.bordo ? R : 0); o._neb = clamp((zc - NEB0)/(NEB1 - NEB0), 0, 1)*(o.nebMax === undefined ? 1 : o.nebMax);
+  if (o._neb > .99) return; visibili.push(o);
+}
+
+/* ---- cielo e lava ---- */
+// La lava è un disegno che si ripete, steso sul pavimento una striscia alla volta (più strette verso l'orizzonte).
+function rumoreRipetuto(seme){
+  const R = rng(seme), tab = [];
+  for (let o=0;o<4;o++){ const per = 6 << o, t = new Float32Array(per*per); for (let j=0;j<t.length;j++) t[j] = R(); tab.push({ per, t }); }
+  const uno = (u, v, o) => { const { per, t } = tab[o], X = u*per, Y = v*per; let xi = Math.floor(X), yi = Math.floor(Y), fx = X-xi, fy = Y-yi;
+    fx = fx*fx*(3-2*fx); fy = fy*fy*(3-2*fy); xi = ((xi % per) + per) % per; yi = ((yi % per) + per) % per; const x1 = (xi+1) % per, y1 = (yi+1) % per;
+    return lerp(lerp(t[yi*per+xi], t[yi*per+x1], fx), lerp(t[y1*per+xi], t[y1*per+x1], fx), fy); };
+  return (u, v) => (uno(u,v,0)*.5 + uno(u,v,1)*.25 + uno(u,v,2)*.125 + uno(u,v,3)*.0625)/.9375;
+}
+const liscio = (a, b, x) => { const t = clamp((x-a)/(b-a), 0, 1); return t*t*(3-2*t); };
+function texGhiaccio(){
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const x = c.getContext('2d'), im = x.createImageData(N, N), d = im.data, f1 = rumoreRipetuto(5), f2 = rumoreRipetuto(6);
+  for (let j=0;j<N;j++) for (let i=0;i<N;i++){
+    const u = i/N, v = j/N, q = f1(u, v), val = f2(u + q*.4, v + q*.25), o = (j*N + i)*4, k = liscio(.3, .7, val), cr = 1 - liscio(0, .035, Math.abs(val - .5));
+    d[o] = lerp(120, 236, k) + cr*30; d[o+1] = lerp(185, 248, k) + cr*10; d[o+2] = lerp(232, 255, k); d[o+3] = 255;
+  }
+  x.putImageData(im, 0, 0); return c;
+}
+// magma: la roccia fusa che scorre sotto, dall'arancio al giallo quasi bianco
+function texMagma(){
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const x = c.getContext('2d'), im = x.createImageData(N, N), d = im.data, f1 = rumoreRipetuto(9), f2 = rumoreRipetuto(11);
+  for (let j=0;j<N;j++) for (let i=0;i<N;i++){
+    const u = i/N, v = j/N, q = f1(u, v), val = f2(u + q*.45, v + q*.3), o = (j*N + i)*4, k = liscio(.28, .72, val), b = liscio(.66, .86, val);
+    d[o] = 255; d[o+1] = lerp(62, 214, k) + b*34; d[o+2] = lerp(0, 46, k*k) + b*150; d[o+3] = 255;
+  }
+  x.putImageData(im, 0, 0); return c;
+}
+// crosta: lastre di roccia scura che galleggiano sul magma. Dove si spaccano resta un buco trasparente
+// e lì sotto si vede il magma che scorre; il bordo delle lastre è rovente.
+function texCrosta(){
+  const N = 512, G = 9, c = document.createElement('canvas'); c.width = c.height = N; const x = c.getContext('2d'), im = x.createImageData(N, N), d = im.data;
+  const R = rng(77), px = [], py = [], caldo = [], f1 = rumoreRipetuto(21), f2 = rumoreRipetuto(22), f3 = rumoreRipetuto(23);
+  for (let k=0;k<G*G;k++){ px.push(.15 + R()*.7); py.push(.15 + R()*.7); caldo.push(R()); }
+  for (let j=0;j<N;j++) for (let i=0;i<N;i++){
+    const u0 = i/N, v0 = j/N, X = (u0 + (f1(u0, v0) - .5)*.1)*G, Y = (v0 + (f2(u0, v0) - .5)*.1)*G, cx = Math.floor(X), cy = Math.floor(Y);
+    let a = 9, b = 9, id = 0;
+    for (let oy=-1;oy<=1;oy++) for (let ox=-1;ox<=1;ox++){
+      const gx = cx + ox, gy = cy + oy, k = (((gy % G) + G) % G)*G + (((gx % G) + G) % G), dd = Math.hypot(gx + px[k] - X, gy + py[k] - Y);
+      if (dd < a){ b = a; a = dd; id = k; } else if (dd < b) b = dd;
+    }
+    const dist = b - a, grana = f3(u0*2 % 1, v0*2 % 1), w = .022 + .15*liscio(.5, .82, f3(u0, v0)), fresca = liscio(.7, .95, caldo[id]);
+    const tono = 16 + 30*grana + caldo[id]*14 + 22*liscio(.05, .5, dist), bordo = 1 - liscio(w*1.4, w*6.5, dist), o = (j*N + i)*4;
+    d[o] = lerp(tono*1.2 + fresca*70, 240, bordo); d[o+1] = lerp(tono*.78 + fresca*10, 78, bordo*bordo); d[o+2] = lerp(tono*.74, 10, bordo);
+    d[o+3] = 255*liscio(w, w*2.3, dist)*(1 - .4*fresca);
+  }
+  x.putImageData(im, 0, 0); return c;
+}
+function rigaDi(zc){ return CY - (-cam.y*FOC/zc - cam.fy*FOC)/cam.uy; }
+// La lava si dipinge su una tela più piccola e poi si ingrandisce: costa molto meno. Se lo schermo è lento si rimpicciolisce ancora.
+let RID = 2; const telaLava = document.createElement('canvas'), ctxL = telaLava.getContext('2d', { alpha:false });
+const patMagma = ctxL.createPattern(texMagma(), 'repeat'), patCrosta = ctxL.createPattern(texCrosta(), 'repeat'), patGhiaccio = ctxL.createPattern(texGhiaccio(), 'repeat');
+const STRISCE = !!(patMagma && patCrosta);
+misura();
+function stendi(pat, N, k, sx, sy, y0, yO){
+  const w = telaLava.width, hh = telaLava.height, cx = CX/RID, cy = CY/RID, foc = FOC/RID;
+  let y = y0; ctxL.fillStyle = pat;
+  while (y < hh){
+    const h = y - yO < 50 ? 1 : 2, yc = y + h/2, dy = cam.fy*foc + cam.uy*(cy - yc);
+    if (dy > -1e-4){ y += h; continue; }
+    const t = -cam.y/dy; if (foc*t > NEB1 + 4){ y += h; continue; }
+    const Cx = cam.x + (cam.fx*foc + cam.ux*(cy - yc))*t, Cz = cam.z + (cam.fz*foc + cam.uz*(cy - yc))*t;
+    const t2 = -cam.y/(cam.fy*foc + cam.uy*(cy - yc - 1)), Gx = cam.x + (cam.fx*foc + cam.ux*(cy - yc - 1))*t2 - Cx, Gz = cam.z + (cam.fz*foc + cam.uz*(cy - yc - 1))*t2 - Cz;
+    const a = k*cam.rx*t, b = k*cam.rz*t, c = k*Gx, d = k*Gz, det = a*d - b*c;
+    if (Math.abs(det) > 1e-9){
+      const e = ((k*(Cx - cam.rx*t*cx - Gx*yc) + sx) % N + N) % N, f = ((k*(Cz - cam.rz*t*cx - Gz*yc) + sy) % N + N) % N;
+      const ia = d/det, ib = -b/det, ic = -c/det, id = a/det;
+      // Si sposta il foglio (la trasformazione della tela), non il motivo: così viene uguale in tutti i browser.
+      // Spostare il motivo con setTransform, su Safari e iPhone, dava una lava a mattoncini.
+      ctxL.setTransform(ia, ib, ic, id, -(ia*e + ic*f), -(ib*e + id*f));
+      const y1 = y + h + .5;
+      ctxL.beginPath(); ctxL.moveTo(c*y + e, d*y + f); ctxL.lineTo(a*w + c*y + e, b*w + d*y + f); ctxL.lineTo(a*w + c*y1 + e, b*w + d*y1 + f); ctxL.lineTo(c*y1 + e, d*y1 + f); ctxL.fill();
+    }
+    y += h;
+  }
+  ctxL.setTransform(1, 0, 0, 1, 0, 0);
+}
+function sfondo(){
+  const yO = CY + cam.fy*FOC/cam.uy, y0 = clamp(Math.round(yO), 0, H);
+  if (y0 > 0){ const g = ctx.createLinearGradient(0, 0, 0, y0); g.addColorStop(0, CIELO_CSS); g.addColorStop(1, NEB_CSS); ctx.fillStyle = g; ctx.fillRect(0, 0, W, y0); }
+  if (y0 >= H) return;
+  if (STRISCE){
+    const q0 = Math.floor(y0/RID), w = telaLava.width, hh = telaLava.height, yq = yO/RID;
+    ctxL.globalAlpha = 1; ctxL.fillStyle = NEB_CSS; ctxL.fillRect(0, q0, w, hh - q0);
+    if (gelo01 < .99){
+      stendi(patMagma, 256, 15, tempo*16, tempo*9, q0, yq);            // il magma scorre...
+      stendi(patCrosta, 512, 30, tempo*2.6, tempo*1.3, q0, yq);        // ...sotto la crosta, che va alla deriva piano
+      if (RID < 3){ ctxL.globalCompositeOperation = 'lighter'; ctxL.globalAlpha = .12 + .07*Math.sin(tempo*1.6);   // respiro di calore, a chiazze
+        stendi(patMagma, 256, 5, -tempo*5, tempo*3, q0, yq); ctxL.globalCompositeOperation = 'source-over'; ctxL.globalAlpha = 1; }
+    }
+    if (gelo01 > .01){ ctxL.globalAlpha = gelo01; stendi(patGhiaccio, 256, 12.8, 0, 0, q0, yq); ctxL.globalAlpha = 1; }
+    ctx.drawImage(telaLava, 0, q0, w, hh - q0, 0, q0*RID, w*RID, (hh - q0)*RID);
+  } else { const g = ctx.createLinearGradient(0, y0, 0, H); g.addColorStop(0, NEB_CSS); g.addColorStop(1, gelo01 > .5 ? '#bfe6ff' : '#ff7a1a'); ctx.fillStyle = g; ctx.fillRect(0, y0, W, H - y0); }
+  // foschia: verso l'orizzonte la lava sfuma nel colore del cielo
+  const yv = rigaDi(NEB0), g = ctx.createLinearGradient(0, yO, 0, yv), n = NEB[0] + ',' + NEB[1] + ',' + NEB[2];
+  for (const d of [NEB1, 62, 48, 36, NEB0]) g.addColorStop(clamp((rigaDi(d) - yO)/(yv - yO), 0, 1), 'rgba(' + n + ',' + ((d - NEB0)/(NEB1 - NEB0)).toFixed(3) + ')');
+  ctx.fillStyle = g; ctx.fillRect(0, y0, W, Math.min(H, yv) - y0 + 1);
+}
+
+/* ============ modelli ============ */
+const ORO = 0xffc928, ARGENTO = 0xd0d6e0;
+const COL_CIMA = { norm:0x9a8f82, frana:0xdcb478, mobile:0x4f9cc0, bandiera:0x79a955, arrivo:0xc9a65a, bonus:0xa184cf };
+const applica = (M, x, y, z) => ({ x:M[0]*x+M[1]*y+M[2]*z+M[3], y:M[4]*x+M[5]*y+M[6]*z+M[7], z:M[8]*x+M[9]*y+M[10]*z+M[11] });
+
+// roccia: un tronco con la cima piatta. Il colore e il disegno sulla cima dicono che tipo è.
+// I fianchi rientrano verso il basso: la cima che si vede è esattamente il punto dove si può stare in piedi.
+function creaRoccia(p){
+  const n = p.r > 4 ? 22 : 14, g = vuota(), R = rng(Math.abs(Math.round(p.x*31 + p.z*17)) + 5), r = p.r;
+  const cC = rgb(COL_CIMA[p.tipo]), cL = rgb(p.tipo === 'frana' ? 0x8a6a48 : 0x5c4c4a);
+  for (let i=0;i<n;i++){ const a = i*2*Math.PI/n; g.v.push(Math.sin(a)*r*1.02, 0, Math.cos(a)*r*1.02); }
+  for (let i=0;i<n;i++){ const a = i*2*Math.PI/n, k = r*(.84 + R()*.12); g.v.push(Math.sin(a)*k, -p.y, Math.cos(a)*k); }
+  for (let i=0;i<n;i++){ const j = (i+1)%n, s = .8 + R()*.4; g.f.push({ k:'p', i:[i, n+i, n+j, j], c:cL.map(v => v*s), gl:true }); }
+  g.f.push({ k:'p', i:[...Array(n).keys()], c:cC.map(v => v*.68) });
+  agg(g, gPoli(cerchio(r*.86, n, 0), cC, { b:-.3 }));
+  const segno = (pt, w, c, ch) => agg(g, gLinea(pt.map(q => [q[0], .01, q[1]]), w, c, { b:-.6, ch, em:true }));
+  const anello = k => segno(cerchio(r*k, 14, 0).map(q => [q[0], q[2]]), .1, 0xffffff, true);
+  if (p.tipo === 'mobile' && p.asse === 'x'){ const a = r*.56, t = r*.22;
+    segno([[-a,0],[a,0]], .16, 0xffffff); segno([[-a+t,-t],[-a,0],[-a+t,t]], .16, 0xffffff); segno([[a-t,-t],[a,0],[a-t,t]], .16, 0xffffff); }
+  if (p.tipo === 'mobile' && p.asse === 'y'){ anello(.28); anello(.56); }
+  if (p.tipo === 'frana') for (let k=0;k<5;k++){ let a = k*1.26 + R(), x = 0, z = 0; const pt = [[0,0]];
+    for (let s=0;s<3;s++){ a += (R()-.5)*1.2; x += Math.sin(a)*r*.26; z += Math.cos(a)*r*.26; pt.push([x, z]); } segno(pt, .07, 0x5a3210); }
+  if (p.tipo === 'bandiera') anello(.6);
+  if (p.tipo === 'arrivo'){ agg(g, gLinea(cerchio(r*.55, 20, .01), .12, 0x8a6a20, { b:-.6, ch:true, em:true })); agg(g, gLinea(cerchio(r*.3, 14, .01), .12, 0x8a6a20, { b:-.6, ch:true, em:true })); }
+  if (p.tipo === 'bonus') agg(g, gPoli([...Array(10).keys()].map(i => { const a = i*Math.PI/5, k = r*(i % 2 ? .22 : .52); return [Math.sin(a)*k, .01, Math.cos(a)*k]; }), 0xffe680, { b:-.6, em:true }));
+  p.m = rete(g, mTr(p.x, p.y, p.z)); p.n = n; p.yv = p.y;
+  p.obj = { strati:[[p.m]], x:p.x, y:p.y, z:p.z, rag:r + .4, bordo:true };
+}
+function posRoccia(p, x, y, z){
+  const m = p.m; m.M[3] = x; m.M[7] = y; m.M[11] = z;
+  if (y !== p.yv){ p.yv = y; for (let i=0;i<p.n;i++) m.v[(p.n + i)*3 + 1] = -y; }
+  p.obj.x = x; p.obj.y = y; p.obj.z = z;
+}
+function creaBandiera(p){
+  const g = vuota(); agg(g, gLinea([[0,0,0],[0,2.2,0]], .08, 0xe8e0d0)); agg(g, gSfera(.1, ORO), mTr(0, 2.26, 0));
+  agg(g, gPoli([[0,2.14,0],[.8,1.9,0],[0,1.66,0]], 0xff4a3a, { due:true, em:true }));
+  const x = p.x + p.r*.62, z = p.z - p.r*.35, m = rete(g, mTr(x, p.y, z));
+  p.telo = m.f[m.f.length-1]; p.bandiera = { strati:[[m]], x, y:p.y + 1.2, z, rag:1.3 };
+}
+const G_MONETA = agg(agg(vuota(), gCil(.34, .34, .09, 8, ORO), mRx(Math.PI/2)), gLinea(cerchio(.2, 8, 0, 'z'), .04, 0xb07a00, { ch:true, b:-.02 }), mTr(0, 0, .05));
+const G_MELA = (() => { const g = vuota(); agg(g, gSfera(.3, 0xe9322f)); agg(g, gLinea([[0,.27,0],[.04,.42,0]], .05, 0x5a3a1a, { b:-.3 }));
+  agg(g, gPoli([[.04,.38,0],[.2,.46,.05],[.24,.36,0],[.12,.32,-.05]], 0x3fbf4a, { due:true, b:-.3 })); return g; })();
+const G_ACQUA = (() => { const g = vuota(); agg(g, gCil(.17, .17, .42, 8, 0x5fd0ff), mTr(0, -.05, 0)); agg(g, gCil(.08, .12, .1, 6, 0x8fe0ff), mTr(0, .21, 0));
+  agg(g, gCil(.1, .1, .08, 6, 0xffffff), mTr(0, .3, 0)); agg(g, gLinea([[-.17,-.05,.15],[.17,-.05,.15]], .12, 0xffffff, { b:-.3, a:.75 })); return g; })();
+const G_CUORE = gPoli([...Array(18).keys()].map(i => { const t = i*Math.PI/9; return [Math.pow(Math.sin(t), 3)*.4, (13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t))*.025, 0]; }), 0xff2d55, { due:true, em:true });
+const gGemma = k => gOtta(.3, .42, GEMME[k].col);
+const G_CHIAVE = (() => { const g = vuota(), o = { em:true };
+  agg(g, gLinea(cerchio(.17, 10, .26, 'z'), .08, ORO, { ch:true, em:true })); agg(g, gLinea([[0,.09,0],[0,-.34,0]], .08, ORO, o));
+  agg(g, gLinea([[0,-.3,0],[.14,-.3,0]], .07, ORO, o)); agg(g, gLinea([[0,-.16,0],[.11,-.16,0]], .07, ORO, o)); return g; })();
+function creaOggetto(o){
+  const g = o.tipo === 'moneta' ? G_MONETA : o.tipo === 'cibo' ? G_MELA : o.tipo === 'acqua' ? G_ACQUA : o.tipo === 'cuore' ? G_CUORE : gGemma(o.sub);
+  o.m = rete(g, mTr(o.x, o.y, o.z)); o.obj = { strati:[[o.m]], x:o.x, y:o.y, z:o.z, rag:.6 }; o.rot = o.x + o.z;
+}
+function creaVulcano(v){
+  const n = 12, g = vuota(), R = rng(Math.abs(Math.round(v.x*7 + v.z*3)) + 1), alt = 13, raggi = [9.5, 6.4, 4.1, 2.5];
+  for (let j=0;j<4;j++) for (let i=0;i<n;i++){ const a = i*2*Math.PI/n, k = raggi[j]*(1 + (j < 3 ? (R()-.5)*.24 : 0)); g.v.push(Math.sin(a)*k, alt*j/3, Math.cos(a)*k); }
+  for (let j=0;j<3;j++) for (let i=0;i<n;i++){ const k = (i+1)%n, colata = (i % 4 === 1 && j >= 1) || (i % 5 === 3 && j === 2), s = .8 + R()*.4;
+    g.f.push(colata ? { k:'p', i:[(j+1)*n+i, j*n+i, j*n+k, (j+1)*n+k], c:rgb(j === 2 ? 0xff8a1a : 0xe0501a), em:true }
+                    : { k:'p', i:[(j+1)*n+i, j*n+i, j*n+k, (j+1)*n+k], c:rgb(j === 2 ? 0x6a2c22 : 0x40303a).map(c => c*s) }); }
+  g.f.push({ k:'p', i:[...Array(n).keys()].map(i => 3*n + i), c:rgb(0xffb020), em:true });
+  v.bocca = { x:v.x, y:alt*v.sc, z:v.z };
+  v.obj = { strati:[[rete(g, mMul(mTr(v.x, 0, v.z), mSc(v.sc)))]], x:v.x, y:alt*v.sc*.4, z:v.z, rag:10.5*v.sc, bordo:true, lontano:260, nebMax:.86 };
+}
+function creaCassaforte(L){
+  const A = L.A, T = mMul(mTr(A.x - 3.4, A.y, A.z + .6), mRy(.4)), fu = 0x66788f, de = 0x2a3242, g = vuota();
+  agg(g, gBox(2.4, .18, 1.6, fu, { b:1 }), mTr(0, .34, 0)); agg(g, gBox(2.4, .18, 1.6, fu), mTr(0, 2.56, 0));
+  agg(g, gBox(.18, 2.4, 1.6, fu), mTr(-1.11, 1.45, 0)); agg(g, gBox(.18, 2.4, 1.6, fu), mTr(1.11, 1.45, 0));
+  agg(g, gBox(2.4, 2.4, .18, de, { b:2 }), mTr(0, 1.45, -.71)); agg(g, gBox(2.04, .08, 1.3, 0x8a97aa, { b:.4 }), mTr(0, 1.4, -.05));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) agg(g, gBox(.3, .26, .3, de), mTr(sx*.95, .12, sz*.6));
+  const guscio = rete(g, T), t = vuota();
+  agg(t, gSfera(.85, 0xffe07a, { em:true, a:.22, b:1 }), mTr(0, 1.9, .1));
+  L.cassaGemme.forEach((k, i) => { const su = i % 2, c = Math.floor(i/2); agg(t, gGemma(k), mCat(mTr(-.72 + c*.48 + su*.22, su ? 1.76 : .75, .2 - su*.1), mSc(.8, .85, .8))); });
+  const tesoro = rete(t, T), chiave = rete(G_CHIAVE, T);
+  const centro = applica(T, 0, 1.4, 0);
+  const obj = { strati:[[guscio], [tesoro, chiave]], x:centro.x, y:centro.y, z:centro.z, rag:2 };
+  const p = vuota(); agg(p, gBox(2.4, 2.4, .2, fu), mTr(1.2, 0, 0)); agg(p, gCil(.42, .42, .1, 10, ARGENTO), mCat(mTr(1.2, 0, .16), mRx(Math.PI/2)));
+  agg(p, gLinea([[.75,0,.24],[1.65,0,.24]], .09, ORO, { b:-.3 })); agg(p, gLinea([[1.2,-.45,.24],[1.2,.45,.24]], .09, ORO, { b:-.3 }));
+  const Mp = mCat(T, mTr(-1.2, 1.45, .8), mRy(-2.0)), cp = applica(Mp, 1.2, 0, 0);
+  return { T, obj, tesoro, chiave, porta:{ strati:[[rete(p, Mp)]], x:cp.x, y:cp.y, z:cp.z, rag:1.6 } };
+}
+function creaPortone(L){
+  const A = L.A, x = A.x, y = A.y, z = A.z - 4.6, pietra = 0x7a6866, g = vuota();
+  agg(g, gBox(1, 4.4, 1, pietra), mTr(-2.6, 2.2, 0)); agg(g, gBox(1, 4.4, 1, pietra), mTr(2.6, 2.2, 0)); agg(g, gBox(6.6, .9, 1.15, 0x8a7674), mTr(0, 4.75, 0));
+  agg(g, gOtta(.4, .4, ORO), mCat(mTr(0, 4.75, .62), mSc(1, 1, .5)));
+  const telaio = { strati:[[rete(g, mTr(x, y, z))]], x, y:y + 3, z, rag:3.6 };
+  const ante = [-1, 1].map(s => { const a = vuota();
+    for (let i=0;i<5;i++) agg(a, gLinea([[-s*(.2 + i*.44), .1, 0], [-s*(.2 + i*.44), 4.15, 0]], .13, ORO, { em:true }));
+    agg(a, gLinea([[0,.5,0],[-s*2.04,.5,0]], .15, 0xd9a010, { em:true })); agg(a, gLinea([[0,3.6,0],[-s*2.04,3.6,0]], .15, 0xd9a010, { em:true }));
+    return { s, m:rete(a, mTr(x + s*2.05, y, z)), obj:null }; });
+  for (const a of ante) a.obj = { strati:[[a.m]], x:x + a.s, y:y + 2, z:z + .05, rag:2.3 };
+  const l = vuota(); agg(l, gBox(.62, .5, .22, ARGENTO), mTr(0, 0, 0)); agg(l, gLinea(cerchio(.2, 10, .34, 'z'), .09, ARGENTO, { ch:true, b:.1 })); agg(l, gSfera(.07, 0x1a1020, { pi:true, b:-.3 }), mTr(0, 0, .12));
+  const lucchetto = { m:rete(l, mTr(x, y + 2, z + .2)), obj:null }; lucchetto.obj = { strati:[[lucchetto.m]], x, y:y + 2, z:z + .25, rag:.6 };
+  const v = vuota(); agg(v, gPoli(cerchio(1.9, 18, 0, 'z'), 0x1c7ad8, { due:true, em:true, b:.3 })); agg(v, gPoli(cerchio(1.25, 14, 0, 'z'), 0x4fe0d0, { due:true, em:true, b:.2 }));
+  agg(v, gPoli(cerchio(.55, 10, 0, 'z'), 0xeafffb, { due:true, em:true, b:.1 }));
+  for (let k=0;k<3;k++) agg(v, gLinea([...Array(14).keys()].map(s => { const a = k*2.094 + s*.3, r = .25 + s*.12; return [Math.cos(a)*r, Math.sin(a)*r, .02]; }), .09, 0xffffff, { em:true, a:.8 }));
+  const vortice = { m:rete(v, mTr(x, y + 2.1, z - 1.5)), obj:null, rot:0, x, y:y + 2.1, z:z - 1.5 }; vortice.obj = { strati:[[vortice.m]], x, y:y + 2.1, z:z - 1.5, rag:2 };
+  return { x, y, z, telaio, ante, lucchetto, vortice };
+}
+
+// l'esploratore: fatto di blocchi, con gambe e braccia che si muovono
+const eroe = { pos:{ x:0, y:1.2, z:0 }, vel:{ x:0, y:0, z:0 }, aTerra:null, coyote:0, buffer:0, rot:Math.PI, invuln:0, superSalto:false, plana:false, passo:0, cade:0, bob:0, elica:0 };
+let E = null;
+function creaEroe(){
+  const pelle = 0xffc9a0, mg = COLORI[S.colore], calzoni = 0x2b3350, scarpe = 0x3a2a22, b = vuota(), c = S.cappello;
+  agg(b, gBox(.62, .6, .38, mg), mTr(0, .84, 0)); agg(b, gBox(.46, .48, .22, 0x8a5a2a), mTr(0, .88, -.29));
+  agg(b, gSfera(.3, pelle), mTr(0, 1.44, 0));
+  for (const s of [-1, 1]) agg(b, gSfera(.052, 0x1a1020, { pi:true }), mTr(s*.11, 1.48, .262));
+  agg(b, gLinea([[-.07,1.34,.27],[0,1.31,.29],[.07,1.34,.27]], .035, 0xb03040));
+  let elica = null;
+  if (!c){ agg(b, gCupola(.33, 8, 0xffd23f), mTr(0, 1.5, 0)); agg(b, gCil(.43, .43, .04, 10, 0xf0c020), mTr(0, 1.5, .03)); agg(b, gSfera(.07, 0xffffff, { em:true, pi:true }), mTr(0, 1.63, .3)); }
+  if (c === 'pompiere'){ agg(b, gCupola(.34, 8, 0xd91e2a), mTr(0, 1.5, 0)); agg(b, gCil(.46, .46, .04, 10, 0xb81822), mTr(0, 1.5, -.07));
+    agg(b, gBox(.07, .16, .5, ORO), mTr(0, 1.86, 0)); agg(b, gBox(.16, .16, .04, ORO), mTr(0, 1.64, .33)); }
+  if (c === 'elica'){ agg(b, gCupola(.33, 8, 0x2ad4c0), mTr(0, 1.5, 0)); agg(b, gBox(.4, .04, .3, 0xff4d5e), mTr(0, 1.52, .3)); agg(b, gLinea([[0,1.82,0],[0,1.96,0]], .05, 0xffd23f));
+    elica = rete(gBox(.74, .03, .12, 0xffd23f)); }
+  if (c === 'corona'){ agg(b, gCil(.29, .29, .18, 8, ORO), mTr(0, 1.72, 0));
+    for (let i=0;i<6;i++){ const a = i*Math.PI/3; agg(b, gCono(.07, .18, 4, ORO), mTr(Math.sin(a)*.25, 1.8, Math.cos(a)*.25)); }
+    agg(b, gOtta(.07, .09, 0xff2d55), mTr(0, 1.72, .3)); }
+  const gamba = () => { const g = vuota(); agg(g, gBox(.22, .5, .26, calzoni), mTr(0, -.24, 0)); agg(g, gBox(.25, .13, .38, scarpe), mTr(0, -.48, .05));
+    agg(g, gCil(.09, .09, .13, 6, 0xc8ccd4, { molla:true }), mTr(0, -.61, .03)); return rete(g); };
+  const braccio = () => { const g = vuota(); agg(g, gBox(.17, .46, .19, mg), mTr(0, -.2, 0)); agg(g, gSfera(.1, pelle), mTr(0, -.5, 0)); return rete(g); };
+  E = { busto:rete(b), gS:gamba(), gD:gamba(), bS:braccio(), bD:braccio(), elica,
+    ala:rete(agg(vuota(), gBox(2.2, .05, .9, 0xff8a1f), mTr(0, 2.15, -.1))), bolla:rete(gSfera(1.15, 0x8fe8ff, { em:true, a:.24 }), null) };
+  const corpo = [E.busto, E.gS, E.gD, E.bS, E.bD, E.ala]; if (elica) corpo.push(elica);
+  for (const m of corpo.concat(E.bolla)) m.sc = 1.1;
+  E.obj = { strati:[corpo, [E.bolla]], x:0, y:0, z:0, rag:1.6 };
+}
+creaEroe();
+const ombra = { m:rete(agg(gPoli(cerchio(1, 12, 0), 0x000000, { em:true, a:.45 }), gLinea(cerchio(1.25, 16, .01), .16, 0xffffff, { ch:true, em:true, a:.95, b:-.2 }))), obj:null }; ombra.obj = { strati:[[ombra.m]], x:0, y:0, z:0, rag:.8 };
+const G_BOMBA = gSfera(.55, 0xffa51f, { em:true });
+const G_ANELLO = gLinea(cerchio(1.7, 20, 0), .2, 0xff2a1a, { ch:true, em:true, a:1 });
+const G_DISCO = gPoli(cerchio(1.7, 14, 0), 0xff2a1a, { em:true, a:.38 });
+
+/* ============ scintille, fumo, schizzi ============ */
+const PART = []; let pIdx = 0;
+function disegnaSbuffo(p){
+  const s = FOC/p._z, dx = p.x-cam.x, dy = p.y-cam.y, dz = p.z-cam.z, k = p.vita/p.max, R = lerp(p.s1, p.s0, k)*.5*s; if (R < .3) return;
+  ctx.globalAlpha = Math.min(1, k*2)*(1 - p._neb*.9); ctx.fillStyle = p.css; ctx.beginPath();
+  ctx.arc(CX + (dx*cam.rx + dz*cam.rz)*s, CY - (dx*cam.ux + dy*cam.uy + dz*cam.uz)*s, R, 0, 6.2832); ctx.fill(); ctx.globalAlpha = 1;
+}
+for (let i=0;i<260;i++) PART.push({ vita:0, x:0, y:0, z:0, rag:.5, fn:disegnaSbuffo, lontano:120 });
+function sbuffo(x, y, z, vx, vy, vz, vita, s0, s1, col, grav){
+  const p = PART[pIdx = (pIdx+1) % PART.length]; p.x = x; p.y = y; p.z = z; p.vx = vx; p.vy = vy; p.vz = vz; p.vita = p.max = vita; p.s0 = s0; p.s1 = s1; p.g = grav || 0;
+  p.css = '#' + col.toString(16).padStart(6, '0');
+}
+function scoppio(x, y, z, n, col, forza, grav){
+  for (let i=0;i<n;i++){ const a = Math.random()*6.28, v = forza*(.4 + Math.random()*.6); sbuffo(x, y, z, Math.cos(a)*v, forza*(.5 + Math.random()), Math.sin(a)*v, .5 + Math.random()*.5, .32, .04, col, grav === undefined ? 14 : grav); }
+}
+function aggiornaParticelle(dt){
+  for (const p of PART){ if (p.vita <= 0) continue; p.vita -= dt; p.vy -= p.g*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.z += p.vz*dt; }
+}
+
+/* ============ fabbrica dei livelli ============ */
+// Ogni livello nasce da un numero fisso: lo stesso livello è sempre uguale, così si può imparare.
+function tocca(q, lista, marg, salta){
+  for (const o of lista){ if (o === salta) continue;
+    const extra = (q.asse === 'x' ? q.amp : 0) + (o.asse === 'x' ? o.amp : 0);
+    if (Math.hypot(q.x-o.x, q.z-o.z) < q.r + o.r + marg + extra) return true; }
+  return false;
+}
+function genera(n, dif){
+  const R = rng(n*7919 + dif.id*131 + 17), P = [], O = [], V = [];
+  const inizio = { x:0, y:1.2, z:0, r:4.2, tipo:'bandiera', band:true }; P.push(inizio);
+  const N = Math.round((14 + Math.min(n,14)*3) * dif.lung), scala = .86 + Math.min(n,8)*.018;
+  const pMob = n >= 2 ? Math.min(.28, .12 + n*.02) : 0, pFra = n >= 3 ? Math.min(.3, .12 + n*.025) : 0;
+  let ang = 0, prev = inizio;
+  for (let i=1;i<=N;i++){
+    const band = i % dif.band === 0;
+    let tipo = 'norm';
+    if (!band && i > 2 && i < N && prev.tipo !== 'mobile'){ const u = R(); if (u < pMob){ if (prev.tipo !== 'frana') tipo = 'mobile'; } else if (u < pMob + pFra) tipo = 'frana'; }   // mai una roccia mobile subito dopo una che frana: non ci sarebbe il tempo di aspettarla
+    let p = null;
+    for (let k=0;k<14;k++){
+      const lim = (tipo === 'mobile' || prev.tipo === 'mobile') ? .4 : .95;
+      let a = clamp(ang + (R()-.5)*1.3, -lim, lim);
+      if (prev.x > 10) a = -Math.abs(a) - .15; if (prev.x < -10) a = Math.abs(a) + .15;
+      const r = band ? dif.rMax + .5 : lerp(dif.rMin, dif.rMax, R());
+      let y = clamp(prev.y + (R()-.5)*1.5, .9, 3.1), gap = lerp(dif.gapMin, dif.gapMax, R())*scala;
+      const q = { x:0, y, z:0, r, tipo: band ? 'bandiera' : tipo, band };
+      if (tipo === 'mobile'){ q.asse = (n >= 4 && R() < .4) ? 'y' : 'x'; q.amp = q.asse === 'x' ? 1.5 + R()*.7 : .85; q.vel = .9 + R()*.6; q.fase = R()*6.28;
+        gap = Math.min(gap, dif.gapMin + .3); if (q.asse === 'y') q.y = y = clamp(prev.y, 1.9, 2.8); }
+      if (prev.tipo === 'mobile'){ gap = Math.min(gap, dif.gapMin + .3); if (prev.asse === 'y') q.y = y = clamp(prev.y0 + (R()-.5)*.5, .9, 3.1); }
+      if (y - prev.y > .25) gap *= .8;
+      const d = prev.r + gap + r; q.x = prev.x + Math.sin(a)*d; q.z = prev.z - Math.cos(a)*d;
+      if (!tocca(q, P, .8, prev) || k === 13){ p = q; ang = a; break; }
+    }
+    p.x0 = p.x; p.y0 = p.y; P.push(p); prev = p;
+  }
+  const A = { x:prev.x, y:Math.max(1, prev.y - .3), z:prev.z - (prev.r + dif.gapMin + 7.5), r:7.5, tipo:'arrivo', arrivo:true }; P.push(A);
+  // cose da raccogliere lungo la via
+  let conta = 0, alterna = 0;
+  for (let i=1;i<=N;i++){
+    const p = P[i], q = P[i+1];
+    if (p.tipo !== 'mobile' && !p.band){
+      conta++;
+      if (conta % 3 === 0) O.push({ tipo: alterna++ % 2 ? 'acqua' : 'cibo', x:p.x, y:p.y + 1, z:p.z });
+      else if (R() < .75){ const k = 1 + Math.floor(R()*3), a0 = R()*6.28;
+        for (let j=0;j<k;j++){ const rr = k === 1 ? 0 : p.r*.5; O.push({ tipo:'moneta', x:p.x + Math.cos(a0 + j*2.1)*rr, y:p.y + .9, z:p.z + Math.sin(a0 + j*2.1)*rr }); } }
+    }
+    if (q && p.tipo !== 'mobile' && q.tipo !== 'mobile' && R() < .4){
+      const d = Math.hypot(q.x-p.x, q.z-p.z), t = (p.r + (d - p.r - q.r)/2)/d;
+      O.push({ tipo:'moneta', x:lerp(p.x,q.x,t), y:Math.max(p.y,q.y) + 1.5, z:lerp(p.z,q.z,t) });
+    }
+  }
+  // vulcani ai lati della via, più uno gigante sullo sfondo
+  let lato = R() < .5 ? 1 : -1;
+  for (let z = -24; z > A.z + 12; z -= 38){
+    let vicina = P[0]; for (const p of P) if (Math.abs(p.z - z) < Math.abs(vicina.z - z)) vicina = p;
+    V.push({ x:vicina.x + lato*(20 + R()*4), z:z + (R()-.5)*6, sc:.9 + R()*.3, tm:2.5 + R()*3 }); lato = -lato;
+  }
+  V.push({ x:A.x + (R()-.5)*24, z:A.z - 75, sc:3.3, deco:true });
+  // rocce nascoste fuori via, con un premio sopra
+  let cuoreMesso = n < 2;
+  for (let i=3; i<N; i += 4 + Math.floor(R()*3)){
+    const p = P[i], q = P[i+1]; if (p.tipo === 'mobile' || p.arrivo) continue;
+    const d = Math.hypot(q.x-p.x, q.z-p.z), ux = (q.x-p.x)/d, uz = (q.z-p.z)/d;
+    for (const s of R() < .5 ? [1,-1] : [-1,1]){
+      const rb = 1.6, dist = p.r + dif.gapMin + .4 + rb;
+      const b = { x:p.x + uz*s*dist, y:clamp(p.y + (R()-.5)*.7, .9, 3), z:p.z - ux*s*dist, r:rb, tipo:'bonus' };
+      if (Math.abs(b.x) > 21 || tocca(b, P, 1.1, p) || V.some(v => Math.hypot(b.x-v.x, b.z-v.z) < 10.5*v.sc + rb)) continue;
+      b.x0 = b.x; b.y0 = b.y; P.push(b);
+      const u = R();
+      if (u < .4) O.push({ tipo:'gemma', sub: R() < .5 ? 'rubino' : R() < .7 ? 'smeraldo' : 'diamante', x:b.x, y:b.y + 1, z:b.z });
+      else if (u < .6 && !cuoreMesso){ cuoreMesso = true; O.push({ tipo:'cuore', x:b.x, y:b.y + 1, z:b.z }); }
+      else for (let j=0;j<4;j++) O.push({ tipo:'moneta', x:b.x + Math.cos(j*1.57)*.8, y:b.y + .9, z:b.z + Math.sin(j*1.57)*.8 });
+      break;
+    }
+  }
+  const cassa = []; const quante = 2 + Math.floor(n/2) + dif.gemme;
+  for (let i=0;i<Math.min(quante, 8);i++){ const u = R(); cassa.push(u < .45 ? 'rubino' : u < .8 ? 'smeraldo' : 'diamante'); }
+  return { P, O, V, A, N, cassa };
+}
+
+/* ============ partita ============ */
+const app = { modo:'menu', livello:1, dopo:'menu', fermo:false };
+const GHIACCIO = { dx:0, dy:0, y:.08, solido:true };
+let liv = null, tempo = 0, scossa = 0;
+const dette = new Set(), camT = { x:0, y:0, z:0 };
+function tema(n){
+  const t = TEMI[(n-1) % TEMI.length]; NEB = rgb(t.basso); NEB_CSS = css(NEB[0], NEB[1], NEB[2]); const a = rgb(t.alto); CIELO_CSS = css(a[0], a[1], a[2]);
+}
+function costruisci(n){
+  const dif = DIF[S.dif], g = genera(n, dif), fissi = [];
+  for (const p of g.P){ p.solido = true; p.dx = p.dy = 0; p.st = 0; if (p.x0 === undefined){ p.x0 = p.x; p.y0 = p.y; }
+    creaRoccia(p); fissi.push(p.obj); if (p.band){ creaBandiera(p); fissi.push(p.bandiera); } }
+  for (const o of g.O){ creaOggetto(o); o.y0 = o.y; o.fase = o.x*1.7 + o.z; }
+  for (const v of g.V){ creaVulcano(v); v.fumo = 0; fissi.push(v.obj); }
+  liv = { n, dif, piatt:g.P, ogg:g.O, vulc:g.V, A:g.A, N:g.N, cassaGemme:g.cassa, bombe:[], fissi,
+    stato:'gioco', tm:0, t:0, gelo:0, chiave:false, presa:false, aperto:false, apri:0, tesoroT:0,
+    monete:0, gemme:{ rubino:0, smeraldo:0, diamante:0 }, cuori:S.cuoriMax, cibo:100, acqua:100,
+    molle:S.molle, ghiaccio:S.ghiaccio, scudo:S.scudo, merenda:S.merenda, cp:g.P[0], pocoCibo:false, pocaAcqua:false };
+  liv.cassa = creaCassaforte(liv); liv.portone = creaPortone(liv);
+  fissi.push(liv.cassa.obj, liv.cassa.porta, liv.portone.telaio, liv.portone.ante[0].obj, liv.portone.ante[1].obj, liv.portone.lucchetto.obj, liv.portone.vortice.obj);
+  g.P[0].telo.c = rgb(0x3ddc5a);
+  tema(n); for (const p of PART) p.vita = 0; gelo01 = 0;
+  Object.assign(eroe, { aTerra:g.P[0], coyote:0, buffer:0, rot:Math.PI, invuln:0, superSalto:false, plana:false, cade:0 });
+  eroe.pos.x = 0; eroe.pos.y = g.P[0].y; eroe.pos.z = 0; eroe.vel.x = eroe.vel.y = eroe.vel.z = 0;
+  camT.x = 0; camT.y = eroe.pos.y; camT.z = 0;
+}
+function avvia(n){
+  audio(); app.livello = n; costruisci(n); app.modo = 'gioco'; schermo(null); hud();
+  $('#liv-nome').textContent = 'Livello ' + n + ' · ' + nomeLivello(n);
+  if (n === 1) avviso(TOCCO() ? 'Leva a sinistra per muoverti, tasto SALTA per saltare!' : 'Frecce per muoverti, SPAZIO per saltare!', 4);
+  else avviso(nomeLivello(n), 2);
+}
+const nomeLivello = n => NOMI[n-1] || 'Livello extra';
+const TOCCO = () => document.body.classList.contains('tocco');
+
+/* ---- comandi ---- */
+const tasti = {}, leva = { id:null, x:0, z:0 }, inp = { x:0, z:0, salto:false, molla:false, gelo:false };
+window.addEventListener('keydown', e => {
+  if (app.modo !== 'gioco' && app.modo !== 'pausa') return;
+  const c = e.code;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(c)) e.preventDefault();
+  if (c === 'Escape' || c === 'KeyP'){ app.modo === 'gioco' ? pausa() : riprendi(); return; }
+  if (e.repeat) return; tasti[c] = true;
+  if (c === 'Space'){ eroe.buffer = .14; inp.salto = true; }
+  if (c === 'KeyE') inp.molla = true;
+  if (c === 'KeyQ') inp.gelo = true;
+});
+window.addEventListener('keyup', e => { tasti[e.code] = false; if (e.code === 'Space') inp.salto = false; });
+window.addEventListener('blur', () => { for (const k in tasti) tasti[k] = false; inp.salto = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden && app.modo === 'gioco') pausa(); });
+function attivaTocco(){ document.body.classList.add('tocco'); if (app.modo === 'gioco') $('#tocco').hidden = false; }
+if (window.matchMedia && matchMedia('(pointer:coarse)').matches) attivaTocco();
+window.addEventListener('touchstart', attivaTocco, { once:true, passive:true });
+{
+  const zona = $('#leva-zona'), base = $('#leva'), pomo = base.firstElementChild;
+  const muovi = e => { if (e.pointerId !== leva.id) return; const r = base.getBoundingClientRect();
+    let dx = (e.clientX - (r.left + r.width/2))/46, dz = (e.clientY - (r.top + r.height/2))/46; const m = Math.hypot(dx, dz); if (m > 1){ dx /= m; dz /= m; }
+    leva.x = dx; leva.z = dz; pomo.style.transform = `translate(${dx*34}px,${dz*34}px)`; };
+  zona.addEventListener('pointerdown', e => { audio(); leva.id = e.pointerId; try { zona.setPointerCapture(e.pointerId); } catch(_){} muovi(e); });
+  zona.addEventListener('pointermove', muovi);
+  const molla = e => { if (e.pointerId !== leva.id) return; leva.id = null; leva.x = leva.z = 0; pomo.style.transform = ''; };
+  zona.addEventListener('pointerup', molla); zona.addEventListener('pointercancel', molla);
+  const ts = $('#t-salta');
+  ts.addEventListener('pointerdown', e => { e.preventDefault(); audio(); eroe.buffer = .14; inp.salto = true; });
+  for (const ev of ['pointerup','pointercancel','pointerleave']) ts.addEventListener(ev, () => { inp.salto = false; });
+  $('#a-molle').addEventListener('click', () => { inp.molla = true; });
+  $('#a-ghiaccio').addEventListener('click', () => { inp.gelo = true; });
+}
+function leggiComandi(){
+  let x = (tasti.ArrowRight || tasti.KeyD ? 1 : 0) - (tasti.ArrowLeft || tasti.KeyA ? 1 : 0) + leva.x;
+  let z = (tasti.ArrowDown || tasti.KeyS ? 1 : 0) - (tasti.ArrowUp || tasti.KeyW ? 1 : 0) + leva.z;
+  if (app.guida){ x = app.guida.x; z = app.guida.z; }   // solo per le prove automatiche
+  const m = Math.hypot(x, z); if (m > 1){ x /= m; z /= m; } inp.x = x; inp.z = z;
+}
+
+/* ---- avvisi e cruscotto ---- */
+let avvisoT = 0;
+function avviso(t, dur){ const a = $('#avviso'); a.textContent = t; a.classList.add('su'); clearTimeout(avvisoT); avvisoT = setTimeout(() => a.classList.remove('su'), (dur || 2.6)*1000); }
+function unaVolta(k, t, dur){ if (dette.has(k)) return; dette.add(k); avviso(t, dur || 3.2); }
+function hud(){
+  const L = liv; if (!L) return;
+  $('#cuori').textContent = '❤️'.repeat(Math.max(0, L.cuori)) + '🖤'.repeat(Math.max(0, S.cuoriMax - L.cuori));
+  $('#crediti span').textContent = S.crediti + L.monete;
+  $('#chiave').hidden = !L.chiave;
+  for (const k of ['molle','ghiaccio','scudo','merenda']){ const el = $('#a-' + k); el.querySelector('b').textContent = L[k]; el.classList.toggle('vuoto', !L[k]); }
+}
+function barre(){
+  const L = liv; $('#b-cibo').style.width = clamp(L.cibo, 0, 100) + '%'; $('#b-acqua').style.width = clamp(L.acqua, 0, 100) + '%';
+  $('#r-cibo').classList.toggle('poco', L.cibo < 25); $('#r-acqua').classList.toggle('poco', L.acqua < 25);
+  $('#percorso b').style.width = clamp(-eroe.pos.z / -L.A.z, 0, 1)*100 + '%';
+}
+
+/* ---- colpi e cadute ---- */
+function perdiCuore(){ liv.cuori--; SUONO.ahi(); scossa = .35; hud(); }
+function cadeInLava(){
+  const L = liv, e = eroe;
+  if (L.scudo > 0){ L.scudo--; e.vel.y = 15.5; e.pos.y = .12; e.invuln = 1.5; SUONO.scudo(); scoppio(e.pos.x, .3, e.pos.z, 16, 0x8fe8ff, 5); avviso('Lo scudo ti ha fatto rimbalzare!'); hud(); return; }
+  L.stato = 'lava'; L.tm = 1.1; e.vel.x = e.vel.y = e.vel.z = 0; SUONO.lava(); scoppio(e.pos.x, .2, e.pos.z, 22, 0xffa020, 6); perdiCuore();
+  if (L.cuori > 0) avviso('Ahi, scotta! Riparti dalla bandiera.', 2);
+}
+function colpito(perche){
+  const L = liv, e = eroe; if (e.invuln > 0 || L.stato !== 'gioco') return;
+  if (L.scudo > 0){ L.scudo--; e.invuln = 1.2; SUONO.scudo(); scoppio(e.pos.x, e.pos.y + 1, e.pos.z, 16, 0x8fe8ff, 5); avviso('Lo scudo ti ha protetto!'); hud(); return; }
+  perdiCuore(); e.invuln = 2; if (perche) avviso(perche, 2.2);
+  if (L.cuori <= 0){ L.stato = 'ko'; L.tm = 1; }
+}
+function rinasci(){
+  const L = liv, e = eroe, c = L.cp; e.pos.x = c.x; e.pos.y = c.y; e.pos.z = c.z; e.vel.x = e.vel.y = e.vel.z = 0; e.aTerra = c; e.invuln = 2; e.superSalto = false; e.cade = 0; L.stato = 'gioco';
+  L.cibo = Math.max(L.cibo, 40); L.acqua = Math.max(L.acqua, 40);
+}
+function salta(sup){
+  const e = eroe; e.vel.y = sup ? 15 : SALTO; e.aTerra = null; e.coyote = 0; e.buffer = 0; e.superSalto = !!sup; e.noPresa = null; e.saltato = true;
+  if (sup){ SUONO.molla(); scoppio(e.pos.x, e.pos.y, e.pos.z, 10, 0xffffff, 3); } else SUONO.salto();
+}
+function usaGelo(){
+  const L = liv;
+  if (L.gelo > 0) return;
+  if (L.ghiaccio <= 0){ SUONO.no(); avviso('Non hai ghiaccioli: si comprano alla bottega.', 2); return; }
+  L.ghiaccio--; L.gelo = 8; SUONO.gelo(); avviso('Lava congelata per 8 secondi: ci puoi camminare!', 2.6);
+  for (const b of L.bombe) scoppio(b.palla.x, b.palla.y, b.palla.z, 8, 0xbfeaff, 3);
+  L.bombe.length = 0; hud();
+}
+
+/* ---- rocce che si muovono e che franano ---- */
+function aggiornaRocce(dt){
+  const L = liv;
+  for (const p of L.piatt){
+    p.dx = 0; p.dy = 0;
+    if (p.tipo === 'mobile'){
+      const ox = p.x, oy = p.y, s = Math.sin(L.t*p.vel + p.fase);
+      if (p.asse === 'x') p.x = p.x0 + s*p.amp; else p.y = p.y0 + s*p.amp;
+      p.dx = p.x - ox; p.dy = p.y - oy; posRoccia(p, p.x, p.y, p.z);
+    } else if (p.tipo === 'frana' && p.st){
+      p.tm -= dt;
+      if (p.st === 1){ posRoccia(p, p.x + (Math.random()-.5)*.1, p.y, p.z + (Math.random()-.5)*.1);
+        if (p.tm <= 0){ p.st = 2; p.vy = 0; p.off = 0; p.solido = false; SUONO.frana(); scoppio(p.x, p.y, p.z, 10, 0xd9b074, 4); } }
+      else if (p.st === 2){ p.vy -= 22*dt; p.off += p.vy*dt; if (p.y + p.off < .06){ p.st = 3; p.tm = 2.2; p.obj.spento = true; scoppio(p.x, .2, p.z, 10, 0xffa020, 4); } else posRoccia(p, p.x, p.y + p.off, p.z); }
+      else if (p.st === 3 && p.tm <= 0){ p.st = 4; p.tm = .4; p.obj.spento = false; p.solido = true; }
+      else if (p.st === 4){ posRoccia(p, p.x, Math.max(.07, p.y*clamp(1 - p.tm/.4, 0, 1)), p.z); if (p.tm <= 0){ p.st = 0; posRoccia(p, p.x, p.y, p.z); } }
+    }
+  }
+}
+function suoloSotto(x, z, ymax){
+  let y = liv.gelo > 0 ? .08 : .04;
+  for (const p of liv.piatt) if (p.solido && p.y <= ymax + .3 && p.y > y && Math.hypot(x-p.x, z-p.z) < p.r) y = p.y;
+  return y;
+}
+
+/* ---- l'esploratore: corsa, salto, atterraggio ---- */
+function muoviEroe(dt){
+  const e = eroe, L = liv;
+  if (e.aTerra && e.aTerra !== GHIACCIO && !e.aTerra.solido) e.aTerra = null;
+  if (e.aTerra && e.aTerra !== GHIACCIO){ e.pos.x += e.aTerra.dx; e.pos.y = e.aTerra.y; }
+  const suPrima = e.aTerra;
+  // in aria, se molli i comandi, lo slancio resta: il salto arriva dove l'avevi puntato
+  const vmax = VEL*(e.superSalto ? 1.55 : 1), acc = (e.aTerra ? 70 : (inp.x || inp.z) ? 42 : 14)*dt;
+  e.vel.x = avvicina(e.vel.x, inp.x*vmax, acc); e.vel.z = avvicina(e.vel.z, inp.z*vmax, acc);
+  e.buffer -= dt; e.coyote -= dt; if (e.aTerra) e.coyote = .12;
+  if (inp.molla){ inp.molla = false;
+    if (L.molle <= 0){ SUONO.no(); avviso('Non hai scarpe a molla: si comprano alla bottega.', 2); }
+    else if (e.coyote > 0){ L.molle--; salta(true); hud(); } }
+  if (inp.gelo){ inp.gelo = false; usaGelo(); }
+  if (e.buffer > 0 && e.coyote > 0) salta(false);
+  const prevY = e.pos.y, prevZ = e.pos.z;
+  e.plana = false;
+  if (!e.aTerra){ e.vel.y -= GRAV*dt; if (S.mantello && inp.salto && e.vel.y < -2.4){ e.vel.y = -2.4; e.plana = true; } if (e.vel.y < -30) e.vel.y = -30; e.pos.y += e.vel.y*dt; }
+  e.pos.x += e.vel.x*dt; e.pos.z += e.vel.z*dt;
+  // cassaforte e portone: ostacoli sull'isola d'arrivo
+  const A = L.A, cx = A.x - 3.4, cz = A.z + .6, dc = Math.hypot(e.pos.x - cx, e.pos.z - cz);
+  if (dc < 1.8 && e.pos.y < A.y + 2.6){ e.pos.x = cx + (e.pos.x - cx)/dc*1.8; e.pos.z = cz + (e.pos.z - cz)/dc*1.8; }
+  const gz = A.z - 4.6, gx = Math.abs(e.pos.x - A.x);
+  if (gx < 3.3 && Math.abs(e.pos.z - gz) < .5 && e.pos.y < A.y + 4){
+    if (L.apri < .8 || gx > 1.8){
+      e.pos.z = prevZ >= gz ? gz + .5 : gz - .5;
+      if (prevZ >= gz && gx <= 1.9 && !L.aperto){
+        if (L.chiave){ L.aperto = true; L.chiave = false; SUONO.portone(); avviso('Il portone si apre! Entra nel portale.', 2.4); hud(); }
+        else unaVoltaOgni('chiuso', 'È chiuso! La chiave è nella cassaforte.', 3);
+      }
+    }
+  }
+  // dove appoggia i piedi
+  let terra = null; const toll = Math.max(.5, -e.vel.y*dt + .12);
+  for (const p of L.piatt){
+    if (!p.solido) continue;
+    const dx = e.pos.x - p.x, dz = e.pos.z - p.z, d = Math.hypot(dx, dz);
+    if (d < p.r + .12){
+      if (e.aTerra === p){ if (!terra || p.y > terra.y) terra = p; continue; }
+      if (e.vel.y <= 0 && prevY >= p.y - toll - Math.abs(p.dy)*2 && e.pos.y <= p.y + .02){ if (!terra || p.y > terra.y) terra = p; continue; }
+    }
+    // presa del bordo: se arrivi da un salto e manchi la cima per un soffio, ti aggrappi e sali
+    if (!e.aTerra && e.vel.y < 0 && p !== e.noPresa && d > .001 && d < p.r + .55 && e.pos.y <= p.y + .05 && e.pos.y > p.y - .85){
+      if (d > p.r){ e.pos.x = p.x + dx/d*p.r; e.pos.z = p.z + dz/d*p.r; }
+      if (!terra || p.y > terra.y) terra = p; continue; }
+    if (e.pos.y < p.y - .5 && d < p.r + RAG && d > .001){ e.pos.x = p.x + dx/d*(p.r + RAG); e.pos.z = p.z + dz/d*(p.r + RAG); }
+  }
+  if (terra){
+    if (e.aTerra !== terra) atterra(terra, e.vel.y);
+    e.aTerra = terra; e.pos.y = terra.y; e.vel.y = 0; e.superSalto = false; e.noPresa = null; e.saltato = false;
+  } else if (L.gelo > 0 && e.pos.y <= .08 && e.vel.y <= 0){
+    if (e.aTerra !== GHIACCIO && e.vel.y < -3) SUONO.atterra();
+    e.aTerra = GHIACCIO; e.pos.y = .08; e.vel.y = 0; e.superSalto = false;
+  } else {
+    // sceso a piedi dal bordo (senza saltare): quella roccia non ti riprende, altrimenti non scenderesti mai
+    if (suPrima && suPrima !== GHIACCIO && !e.saltato) e.noPresa = suPrima;
+    e.aTerra = null; if (e.pos.y < .05) cadeInLava();
+  }
+  if (e.invuln > 0) e.invuln -= dt;
+}
+const ultimi = {};
+function unaVoltaOgni(k, t, sec){ if (ultimi[k] && tempo - ultimi[k] < sec) return; ultimi[k] = tempo; SUONO.no(); avviso(t, 2.2); }
+function atterra(p, vy){
+  const L = liv, e = eroe;
+  if (vy < -4){ SUONO.atterra(); for (let i=0;i<5;i++) sbuffo(e.pos.x, p.y + .1, e.pos.z, (Math.random()-.5)*3, 1, (Math.random()-.5)*3, .35, .3, .04, 0xcfc4b8, 4); }
+  if (p.band && !p.arrivo && p !== L.cp && p.z < L.cp.z){ L.cp = p; p.telo.c = rgb(0x3ddc5a); SUONO.bandiera(); scoppio(p.bandiera.x, p.y + 2, p.bandiera.z, 12, 0x3ddc5a, 4);
+    if (!dette.has('band')) unaVolta('band', 'Bandiera! Se cadi, riparti da qui.'); else avviso('Bandiera presa!', 1.2); }
+  if (p.tipo === 'frana' && p.st === 0){ p.st = 1; p.tm = L.dif.id === 2 ? .7 : .95; unaVolta('frana', 'Questa roccia frana: non fermarti!'); }
+  if (p.tipo === 'mobile') unaVolta('mobile', 'Questa roccia si muove: scegli il momento giusto!');
+  if (p.arrivo && !L.presa) unaVolta('arrivo' + L.n, 'Ecco la cassaforte! Prendi la chiave.', 3);
+}
+
+/* ---- raccolta, fame e sete ---- */
+function raccogli(dt){
+  const L = liv, e = eroe;
+  for (const o of L.ogg){
+    if (o.preso) continue;
+    const dx = e.pos.x - o.x, dy = e.pos.y + .9 - o.y, dz = e.pos.z - o.z, d = Math.hypot(dx, dz);
+    if (S.calamita && o.tipo === 'moneta' && d < 4.6 && Math.abs(dy) < 3){ const k = Math.min(1, 13*dt/Math.max(d, .01)); o.x += dx*k; o.z += dz*k; o.y0 += dy*Math.min(1, 9*dt); }
+    if (d < .95 && Math.abs(dy) < 1.5){
+      o.preso = true;
+      if (o.tipo === 'moneta'){ L.monete++; SUONO.moneta(); scoppio(o.x, o.y, o.z, 5, 0xffd23f, 3); unaVolta('moneta', 'Monete! Sono i crediti per la bottega.'); }
+      else if (o.tipo === 'cibo'){ L.cibo = Math.min(100, L.cibo + 45); SUONO.gnam(); scoppio(o.x, o.y, o.z, 6, 0xff5a4a, 3); unaVolta('cibo', 'Gnam! Le mele riempiono la barra del cibo.'); }
+      else if (o.tipo === 'acqua'){ L.acqua = Math.min(100, L.acqua + 45); SUONO.glu(); scoppio(o.x, o.y, o.z, 6, 0x5fd0ff, 3); unaVolta('acqua', 'Glu glu! Le borracce riempiono la barra dell\'acqua.'); }
+      else if (o.tipo === 'cuore'){ SUONO.cuore(); scoppio(o.x, o.y, o.z, 10, 0xff2d55, 4);
+        if (L.cuori < S.cuoriMax){ L.cuori++; avviso('Un cuore in più!', 1.6); } else { L.monete += 10; avviso('Cuori già pieni: 10 monete in regalo!', 2); } }
+      else if (o.tipo === 'gemma'){ L.gemme[o.sub]++; SUONO.gemma(); scoppio(o.x, o.y, o.z, 10, GEMME[o.sub].col, 4); avviso(GEMME[o.sub].nome + '! Si vende alla bottega.', 2); }
+      hud();
+    }
+  }
+}
+function giraOggetti(dt){
+  const L = liv;
+  for (const o of L.ogg){ if (o.preso) continue;
+    o.rot += dt*2.6; o.y = o.y0 + Math.sin(L.t*3 + o.fase)*.12; o.obj.x = o.x; o.obj.y = o.y; o.obj.z = o.z;
+    o.m.M = mMul(mTr(o.x, o.y, o.z), mRy(o.tipo === 'cuore' ? Math.sin(o.rot*.8)*.8 : o.rot)); }
+}
+function fame(dt){
+  const L = liv, r = 100/L.dif.fame*dt; L.cibo -= r; L.acqua -= r*1.08;
+  if (L.cibo < 25 && !L.pocoCibo){ L.pocoCibo = true; avviso('Hai fame! Cerca una mela 🍎', 2.2); } if (L.cibo > 40) L.pocoCibo = false;
+  if (L.acqua < 25 && !L.pocaAcqua){ L.pocaAcqua = true; avviso('Hai sete! Cerca una borraccia 💧', 2.2); } if (L.acqua > 40) L.pocaAcqua = false;
+  for (const k of ['cibo','acqua']){
+    if (L[k] > 0) continue;
+    if (L.merenda > 0){ L.merenda--; L.cibo = L.acqua = 100; SUONO.gnam(); avviso('Merenda di scorta! Pancia piena.', 2.2); hud(); }
+    else { L[k] = 50; perdiCuore(); avviso(k === 'cibo' ? 'Troppa fame: hai perso un cuore!' : 'Troppa sete: hai perso un cuore!', 2.4); if (L.cuori <= 0){ L.stato = 'ko'; L.tm = 1; } }
+  }
+}
+
+/* ---- cassaforte, portone, portale ---- */
+function arrivo(dt){
+  const L = liv, e = eroe, A = L.A, cx = A.x - 3.4, cz = A.z + .6;
+  if (!L.presa){
+    const fx = cx + Math.sin(.4)*1.7, fz = cz + Math.cos(.4)*1.7;
+    if (Math.hypot(e.pos.x - fx, e.pos.z - fz) < 2.1 && Math.abs(e.pos.y - A.y) < 1){
+      L.presa = true; L.chiave = true; L.tesoroT = .6; for (const k of L.cassaGemme) L.gemme[k]++;
+      SUONO.chiave(); scoppio(cx, A.y + 1.6, cz + .6, 26, 0xffd23f, 6);
+      avviso('Hai la chiave e ' + L.cassaGemme.length + ' gioielli! Ora apri il portone.', 3.2); hud();
+    }
+  }
+  if (L.aperto && e.pos.z < A.z - 5.6 && Math.abs(e.pos.x - A.x) < 1.9 && L.stato === 'gioco'){
+    L.stato = 'vinto'; L.tm = 1.3; SUONO.vittoria(); e.vel.x = e.vel.z = 0; e.vel.y = 6; e.aTerra = null;
+    for (let i=0;i<3;i++) scoppio(e.pos.x, e.pos.y + 1 + i*.5, e.pos.z, 14, [0x5dffe0, 0xffd23f, 0xffffff][i], 6, 5);
+  }
+}
+function animaArrivo(dt){
+  const L = liv, c = L.cassa, P = L.portone;
+  if (L.presa){ if (L.tesoroT > 0){ L.tesoroT = Math.max(0, L.tesoroT - dt); const k = L.tesoroT/.6, M = mCat(c.T, mTr(0, (1-k)*1.6, 0), mSc(Math.max(.01, k))); c.tesoro.M = M; c.chiave.M = mCat(M, mTr(0, 2, .15), mRy(tempo*9), mSc(1.5)); }
+    else c.tesoro.nascosta = c.chiave.nascosta = true; }
+  else c.chiave.M = mCat(c.T, mTr(0, 2 + Math.sin(tempo*3)*.08, .15), mRy(tempo*2.4), mSc(1.5));
+  if (L.aperto && L.apri < 1){ L.apri = Math.min(1, L.apri + dt*1.3);
+    for (const a of P.ante) a.m.M = mMul(mTr(P.x + a.s*2.05, P.y, P.z), mRy(-a.s*L.apri*1.9));
+    P.lucchetto.m.M = mTr(P.x, P.y + 2 - L.apri*3, P.z + .2); P.lucchetto.obj.spento = L.apri > .65; }
+  P.vortice.rot -= dt*1.8; P.vortice.m.M = mMul(mTr(P.vortice.x, P.vortice.y, P.vortice.z), mRz(P.vortice.rot));
+}
+
+/* ---- vulcani e palle di fuoco ---- */
+function lancia(v, tx, tz){
+  const L = liv, ty = suoloSotto(tx, tz, 99), anello = rete(G_ANELLO, mTr(tx, ty + .06, tz)), disco = rete(G_DISCO, mTr(tx, ty + .05, tz));
+  L.bombe.push({ da:v.bocca, a:{ x:tx, y:ty, z:tz }, t:0, dur:L.dif.volo*(.92 + Math.random()*.25), anello, disco,
+    palla:{ strati:[[rete(G_BOMBA, mTr(v.bocca.x, v.bocca.y, v.bocca.z))]], x:v.bocca.x, y:v.bocca.y, z:v.bocca.z, rag:.7, lontano:120, nebMax:.5 },
+    segno:{ strati:[[disco, anello]], x:tx, y:ty, z:tz, rag:1.9, bordo:true } });
+}
+function erutta(v){
+  const L = liv, e = eroe; SUONO.rombo(); scossa = Math.max(scossa, .3);
+  for (let i=0;i<16;i++) sbuffo(v.bocca.x + (Math.random()-.5)*2, v.bocca.y, v.bocca.z + (Math.random()-.5)*2, (Math.random()-.5)*7, 7 + Math.random()*8, (Math.random()-.5)*7, 1 + Math.random()*.6, 1.4, .2, Math.random() < .5 ? 0xff7a1a : 0xffd23f, 12);
+  unaVolta('vulcano', 'Il vulcano erutta! Via dai cerchi rossi!', 3.2);
+  const quante = Math.min(4, 1 + Math.floor((L.n-1)/3) + L.dif.bombe), sparo = L.dif.id === 0 ? 1.2 : .3;
+  lancia(v, e.pos.x + (Math.random()-.5)*sparo + e.vel.x*.25, e.pos.z + (Math.random()-.5)*sparo + e.vel.z*.25);
+  const vicine = L.piatt.filter(p => p.solido && !p.arrivo && Math.hypot(p.x - e.pos.x, p.z - e.pos.z) < 13 && p.z < e.pos.z + 3);
+  for (let i=1;i<quante;i++){
+    const p = vicine.length ? vicine[Math.floor(Math.random()*vicine.length)] : null, a = Math.random()*6.28, rr = Math.random()*(p ? p.r*.7 : 5);
+    lancia(v, (p ? p.x : e.pos.x) + Math.cos(a)*rr, (p ? p.z : e.pos.z) + Math.sin(a)*rr);
+  }
+}
+function aggiornaVulcani(dt){
+  const L = liv, e = eroe, gioca = L.stato === 'gioco' && app.modo === 'gioco', intervallo = Math.max(3.2, L.dif.eruz - L.n*.3);
+  for (const v of L.vulc){
+    v.fumo -= dt;
+    if (v.fumo <= 0 && L.gelo <= 0 && Math.abs(v.z - e.pos.z) < 110){ v.fumo = .28;
+      sbuffo(v.bocca.x + (Math.random()-.5)*2*v.sc, v.bocca.y, v.bocca.z, (Math.random()-.5)*.8, 2.2*v.sc, (Math.random()-.5)*.8, 3, 2*v.sc, 6*v.sc, 0x54424a, -.2); }
+    if (v.deco || !gioca || L.gelo > 0) continue;
+    const alRiparo = e.pos.z < L.A.z + L.A.r + 1 || e.pos.z > -8;
+    if (Math.abs(v.z - e.pos.z) < 30 && !alRiparo){ v.tm -= dt; if (v.tm <= 0){ erutta(v); v.tm = intervallo*(.8 + Math.random()*.4); } }
+  }
+  for (let i=L.bombe.length-1;i>=0;i--){
+    const b = L.bombe[i]; b.t += dt; const u = Math.min(1, b.t/b.dur), m = b.palla;
+    m.x = lerp(b.da.x, b.a.x, u); m.z = lerp(b.da.z, b.a.z, u); m.y = lerp(b.da.y, b.a.y, u) + 15*4*u*(1-u); m.strati[0][0].M = mTr(m.x, m.y, m.z);
+    b.disco.M = mMul(mTr(b.a.x, b.a.y + .05, b.a.z), mSc(u + .04, 1, u + .04)); b.anello.f[0].a = .65 + .35*Math.sin(tempo*18);
+    if (Math.random() < .5) sbuffo(m.x, m.y, m.z, (Math.random()-.5), .5, (Math.random()-.5), .45, .7, .08, 0xff5a10);
+    if (u >= 1){
+      SUONO.botto(); scoppio(b.a.x, b.a.y + .2, b.a.z, 18, 0xff7a1a, 6); scoppio(b.a.x, b.a.y + .2, b.a.z, 8, 0xffe07a, 4); scossa = Math.max(scossa, .22);
+      if (gioca && Math.hypot(e.pos.x - b.a.x, e.pos.z - b.a.z) < 1.75 && e.pos.y - b.a.y < 2.6 && e.pos.y - b.a.y > -1.5){ e.vel.y = Math.max(e.vel.y, 6); e.aTerra = null; colpito('Colpito da una palla di fuoco!'); }
+      L.bombe.splice(i, 1);
+    }
+  }
+}
+
+/* ---- aspetto: pose, ombra, telecamera ---- */
+const pose = { gS:0, gD:0, bS:0, bD:0, bz:0 }, BIANCO = [255,255,255], ROSSO = [255,60,40];
+function posa(dt){
+  const e = eroe, L = liv, v = Math.hypot(e.vel.x, e.vel.z), corsa = clamp(v/VEL, 0, 1);
+  if (v > .6 && L.stato === 'gioco') e.rot = angVerso(e.rot, Math.atan2(e.vel.x, e.vel.z), 14*dt);
+  let gS = 0, gD = 0, bS = 0, bD = 0, bz = 0, bob = 0;
+  if (e.aTerra){ e.passo += v*dt*2.3; const s = Math.sin(e.passo)*corsa; gS = s*.95; gD = -s*.95; bS = -s*.8; bD = s*.8; bob = Math.abs(Math.sin(e.passo))*.05*corsa; }
+  else if (e.plana){ gS = .25; gD = .25; bS = bD = -3.0; bz = .25; }
+  else { gS = .55; gD = -.35; bS = bD = e.vel.y > 0 ? -2.7 : -2.1; bz = .3; }
+  const k = Math.min(1, dt*18);
+  pose.gS = lerp(pose.gS, gS, k); pose.gD = lerp(pose.gD, gD, k); pose.bS = lerp(pose.bS, bS, k); pose.bD = lerp(pose.bD, bD, k); pose.bz = lerp(pose.bz, bz, k);
+  const T = mCat(mTr(e.pos.x, e.pos.y + bob, e.pos.z), mRy(e.rot), mRx(e.cade), mSc(1.1));
+  E.busto.M = E.ala.M = E.bolla.M = T;
+  E.gS.M = mCat(T, mTr(-.16, .54, 0), mRx(pose.gS)); E.gD.M = mCat(T, mTr(.16, .54, 0), mRx(pose.gD));
+  E.bS.M = mCat(T, mTr(-.41, 1.1, 0), mRz(-pose.bz), mRx(pose.bS)); E.bD.M = mCat(T, mTr(.41, 1.1, 0), mRz(pose.bz), mRx(pose.bD));
+  E.bolla.M = mMul(T, mTr(0, .95, 0));
+  if (E.elica){ e.elica += dt*(e.aTerra ? 8 : 30); E.elica.M = mCat(T, mTr(0, 1.97, 0), mRy(e.elica)); }
+  E.ala.nascosta = !e.plana; E.bolla.nascosta = !(L.scudo > 0);
+  const molle = L.molle > 0; for (const m of [E.gS, E.gD]) for (const f of m.f) if (f.molla) f.off = !molle;
+  E.obj.x = e.pos.x; E.obj.y = e.pos.y + 1; E.obj.z = e.pos.z;
+  E.obj.spento = e.invuln > 0 && Math.floor(tempo*14) % 2 === 0;
+  const sy = suoloSotto(e.pos.x, e.pos.z, e.pos.y), so = clamp(.62 - (e.pos.y - sy)*.05, .28, .62);
+  ombra.m.M = mMul(mTr(e.pos.x, sy + .03, e.pos.z), mSc(so, 1, so)); ombra.obj.x = e.pos.x; ombra.obj.y = sy; ombra.obj.z = e.pos.z;
+  const inAria = !e.aTerra && L.stato === 'gioco', anello = ombra.m.f[1]; anello.off = !inAria; anello.c = sy > .1 || L.gelo > 0 ? BIANCO : ROSSO;
+  if (inAria) ombra.m.M = mMul(mTr(e.pos.x, sy + .03, e.pos.z), mSc(.5, 1, .5));
+  ombra.obj.spento = L.stato === 'lava';
+}
+function telecamera(dt){
+  const e = eroe;
+  camT.x = lerp(camT.x, e.pos.x, 1 - Math.exp(-dt*5)); camT.z = lerp(camT.z, e.pos.z, 1 - Math.exp(-dt*9)); camT.y = lerp(camT.y, Math.max(e.pos.y, 0), 1 - Math.exp(-dt*2.6));
+  const h = ritratto ? 6 : 4.4, d = ritratto ? 10 : 7.4; let sx = 0, sy = 0;
+  if (scossa > 0){ scossa -= dt; sx = (Math.random()-.5)*scossa*.9; sy = (Math.random()-.5)*scossa*.9; }
+  guarda(camT.x + sx, camT.y + h + sy, camT.z + d, camT.x + sx, camT.y + 1.1 + sy, camT.z - 4.2);
+}
+function ambiente(dt){
+  const L = liv, e = eroe;
+  const meta = L.gelo > 2 ? 1 : L.gelo > 0 ? .55 + .45*Math.sin(tempo*14) : 0; gelo01 = lerp(gelo01, meta, Math.min(1, dt*8));
+  if (L.gelo <= 0 && Math.random() < dt*9){ const a = Math.random()*6.28, r = 3 + Math.random()*16;
+    sbuffo(e.pos.x + Math.cos(a)*r, .1, e.pos.z - 6 + Math.sin(a)*r, (Math.random()-.5)*.6, 1.2 + Math.random()*2, (Math.random()-.5)*.6, 1.6, .22, .03, Math.random() < .5 ? 0xffb030 : 0xff5a10, -.6); }
+  giraOggetti(dt); animaArrivo(dt);
+}
+function aggiorna(dt){
+  const L = liv, e = eroe; L.t += dt;
+  if (L.gelo > 0){ L.gelo -= dt; if (L.gelo <= 0){ L.gelo = 0; avviso('La lava è tornata bollente!', 1.6); } }
+  aggiornaRocce(dt);
+  if (L.stato === 'gioco'){ leggiComandi(); muoviEroe(dt); if (L.stato === 'gioco'){ raccogli(dt); fame(dt); arrivo(dt); } }
+  else if (L.stato === 'lava'){ e.pos.y -= dt*.9; L.tm -= dt; if (L.tm <= 0){ if (L.cuori <= 0) finePartita(); else rinasci(); } }
+  else if (L.stato === 'ko'){ e.cade = Math.min(1.5, e.cade + dt*4); L.tm -= dt; if (L.tm <= 0) finePartita(); }
+  else if (L.stato === 'vinto'){ e.pos.y += dt*2.5; e.rot += dt*12; L.tm -= dt; if (L.tm <= 0) vittoria(); }
+  aggiornaVulcani(dt);
+}
+function disegna(){
+  const L = liv; sfondo(); visibili.length = 0;
+  for (const o of L.fissi) if (!o.spento) metti(o);
+  for (const o of L.ogg) if (!o.preso) metti(o.obj);
+  for (const b of L.bombe){ metti(b.segno); metti(b.palla); }
+  if (!ombra.obj.spento) metti(ombra.obj);
+  if (!E.obj.spento) metti(E.obj);
+  for (const p of PART) if (p.vita > 0) metti(p);
+  visibili.sort((a, b) => b._k - a._k);
+  for (const o of visibili){ if (o.fn) o.fn(o); else for (const s of o.strati) disegnaStrato(s, o._neb); }
+}
+
+/* ============ schermate ============ */
+const SCHERMI = ['menu','come','bottega','pausa','vinto','perso','finale'];
+function schermo(id){
+  for (const s of SCHERMI) $('#s-' + s).hidden = s !== id;
+  $('#hud').hidden = !(id === null || id === 'pausa');
+  $('#tocco').hidden = !(id === null && TOCCO());
+  if (id){ $('#s-' + id).scrollTop = 0; $('#avviso').classList.remove('su'); }
+}
+function pausa(){ if (app.modo !== 'gioco') return; app.modo = 'pausa'; schermo('pausa'); }
+function riprendi(){ if (app.modo !== 'pausa') return; app.modo = 'gioco'; schermo(null); }
+function finePartita(){ app.modo = 'fine'; SUONO.perso(); schermo('perso'); }
+function vittoria(){
+  const L = liv; app.modo = 'fine';
+  S.crediti += L.monete; for (const k in L.gemme) S.gemme[k] += L.gemme[k];
+  S.molle = L.molle; S.ghiaccio = L.ghiaccio; S.scudo = L.scudo; S.merenda = L.merenda;
+  S.sbloccato = Math.max(S.sbloccato, L.n + 1);
+  const primaVolta = L.n === 8 && !S.finito; if (primaVolta) S.finito = true; salva();
+  const tot = Object.keys(L.gemme).reduce((s, k) => s + L.gemme[k], 0);
+  $('#v-testo').textContent = L.cuori === S.cuoriMax ? 'Nemmeno una scottatura: bravissimo!' : 'Il portone è aperto. Avanti così!';
+  $('#v-conto').innerHTML = `<span>🪙 Monete raccolte</span><b>+${L.monete}</b><span>💎 Gioielli da vendere</span><b>${tot}</b><span>❤️ Cuori rimasti</span><b>${L.cuori}</b><span>🪙 Crediti in tasca</span><b>${S.crediti}</b>`;
+  $('#v-avanti').textContent = 'Livello ' + (L.n + 1) + ' ▶';
+  schermo(primaVolta ? 'finale' : 'vinto');
+}
+
+// menu
+function disegnaMenu(){
+  for (const b of $('#m-dif').children) b.setAttribute('aria-pressed', b.dataset.d === S.dif);
+  $('#m-dif-nota').textContent = DIF[S.dif].nota;
+  for (const b of $('#m-colori').children) b.setAttribute('aria-pressed', +b.dataset.c === S.colore);
+  app.livello = clamp(app.livello, 1, S.sbloccato);
+  $('#m-liv').innerHTML = 'Livello ' + app.livello + '<small>' + nomeLivello(app.livello) + '</small>';
+  $('#m-liv-giu').disabled = app.livello <= 1; $('#m-liv-su').disabled = app.livello >= S.sbloccato;
+  $('#m-crediti').textContent = S.crediti;
+  $('#m-suoni').textContent = S.suoni ? '🔊 Suoni: sì' : '🔇 Suoni: no'; $('#m-musica').textContent = S.musica ? '🎵 Musica: sì' : '🎵 Musica: no';
+}
+function vaiMenu(){ app.modo = 'menu'; app.livello = S.sbloccato; disegnaMenu(); schermo('menu'); eroe.rot = Math.PI; }
+$('#m-colori').innerHTML = COLORI.map((c, i) => `<button data-c="${i}" style="background:#${c.toString(16).padStart(6,'0')}" aria-label="Colore ${i+1}"></button>`).join('');
+$('#m-dif').addEventListener('click', e => { const d = e.target.dataset.d; if (!d) return; audio(); SUONO.tic(); S.dif = d; salva(); disegnaMenu(); });
+$('#m-colori').addEventListener('click', e => { const c = e.target.dataset.c; if (c === undefined) return; audio(); SUONO.tic(); S.colore = +c; creaEroe(); salva(); disegnaMenu(); });
+$('#m-liv-giu').onclick = () => { audio(); SUONO.tic(); app.livello--; disegnaMenu(); };
+$('#m-liv-su').onclick = () => { audio(); SUONO.tic(); app.livello++; disegnaMenu(); };
+$('#m-gioca').onclick = () => avvia(app.livello);
+$('#m-bottega').onclick = () => { audio(); apriBottega('menu'); };
+$('#m-come').onclick = () => { audio(); schermo('come'); };
+$('#c-ok').onclick = () => schermo('menu');
+$('#m-suoni').onclick = () => { S.suoni = !S.suoni; salva(); audio(); SUONO.tic(); disegnaMenu(); };
+$('#m-musica').onclick = () => { S.musica = !S.musica; salva(); audio(); SUONO.tic(); disegnaMenu(); };
+{ let pronto = 0; const b = $('#m-azzera');
+  b.onclick = () => { if (Date.now() - pronto < 4000){ S = NUOVO(); salva(); creaEroe(); b.textContent = 'Ricomincia da capo'; pronto = 0; costruisci(1); vaiMenu(); }
+    else { pronto = Date.now(); b.textContent = 'Sicuro? Tocca ancora: perdi tutto'; setTimeout(() => { b.textContent = 'Ricomincia da capo'; }, 4000); } }; }
+$('#b-pausa').onclick = pausa; $('#p-riprendi').onclick = riprendi;
+$('#p-rifai').onclick = () => avvia(liv.n); $('#p-menu').onclick = vaiMenu;
+$('#x-rifai').onclick = () => avvia(liv.n); $('#x-menu').onclick = vaiMenu; $('#x-bottega').onclick = () => apriBottega('rifai');
+$('#v-bottega').onclick = () => apriBottega('avanti'); $('#v-avanti').onclick = () => avvia(liv.n + 1);
+$('#f-bottega').onclick = () => apriBottega('avanti'); $('#f-menu').onclick = vaiMenu;
+
+// bottega
+function prezzo(c){ return c.tipo === 'cuore' ? c.prezzo + (S.cuoriMax - 3)*100 : c.prezzo; }
+function apriBottega(dopo){
+  app.dopo = dopo; app.modo = 'bottega';
+  $('#bt-avanti').textContent = dopo === 'avanti' ? 'Gioca il livello ' + (liv.n + 1) + ' ▶' : dopo === 'rifai' ? 'Riprova il livello ' + liv.n + ' ▶' : 'Gioca ▶';
+  disegnaBottega(); schermo('bottega');
+}
+function disegnaBottega(){
+  $('#bt-crediti').textContent = S.crediti;
+  let tot = 0, h = '';
+  for (const k in GEMME){ const n = S.gemme[k]; tot += n*GEMME[k].val; h += `<span class="gem">${GEMME[k].ico} ${GEMME[k].nome} × <b>${n}</b> <small>(${GEMME[k].val} l'uno)</small></span> `; }
+  $('#bt-gemme').innerHTML = h; const bv = $('#bt-vendi'); bv.disabled = !tot; bv.textContent = tot ? 'Vendi tutto: +' + tot + ' 🪙' : 'Niente da vendere';
+  $('#bt-lista').innerHTML = CATALOGO.map(c => {
+    const p = prezzo(c); let hai = '', etich = p + ' 🪙', spento = S.crediti < p, fatto = false;
+    if (c.tipo === 'cons') hai = 'Ne hai: ' + S[c.id] + (c.qta > 1 ? ' · ne compri ' + c.qta : '');
+    if (c.tipo === 'perm' && S[c.id]){ etich = 'Ce l\'hai ✓'; spento = true; fatto = true; }
+    if (c.tipo === 'cuore'){ hai = 'Cuori: ' + S.cuoriMax + ' su 5'; if (S.cuoriMax >= 5){ etich = 'Al massimo ✓'; spento = true; fatto = true; } }
+    if (c.tipo === 'cappello' && S.cappelli.includes(c.id)){ spento = false; fatto = S.cappello === c.id; etich = fatto ? 'Indossato ✓ (togli)' : 'Indossa'; }
+    return `<div class="merce"><span class="ico">${c.ico}</span><span class="nome">${c.nome}</span><span class="desc">${c.desc}</span><span class="hai">${hai}</span><button data-id="${c.id}" class="${fatto ? 'fatto' : ''}" ${spento ? 'disabled' : ''}>${etich}</button></div>`;
+  }).join('');
+}
+$('#bt-lista').addEventListener('click', e => {
+  const id = e.target.dataset.id; if (!id || e.target.disabled) return; const c = CATALOGO.find(x => x.id === id), p = prezzo(c);
+  if (c.tipo === 'cappello' && S.cappelli.includes(id)){ S.cappello = S.cappello === id ? null : id; SUONO.tic(); }
+  else { if (S.crediti < p){ SUONO.no(); return; } S.crediti -= p; SUONO.cassa();
+    if (c.tipo === 'cons') S[id] += c.qta; else if (c.tipo === 'perm') S[id] = true; else if (c.tipo === 'cuore') S.cuoriMax = Math.min(5, S.cuoriMax + 1);
+    else if (c.tipo === 'cappello'){ S.cappelli.push(id); S.cappello = id; } }
+  creaEroe(); salva(); disegnaBottega();
+});
+$('#bt-vendi').onclick = () => { let tot = 0; for (const k in GEMME){ tot += S.gemme[k]*GEMME[k].val; S.gemme[k] = 0; } if (!tot) return; S.crediti += tot; SUONO.cassa(); SUONO.moneta(); salva(); disegnaBottega(); };
+$('#bt-avanti').onclick = () => avvia(app.dopo === 'avanti' ? liv.n + 1 : app.dopo === 'rifai' ? liv.n : app.livello);
+$('#bt-menu').onclick = vaiMenu;
+
+/* ============ giro principale ============ */
+let ultimo = 0, lento = 0;
+// la fisica va a piccoli passi anche quando lo schermo è lento, così il gioco non rallenta e non si attraversano le rocce
+function fotogramma(dt){ const n = Math.max(2, Math.ceil(dt/.0125)); for (let i=0;i<n;i++) aggiorna(dt/n); posa(dt); telecamera(dt); ambiente(dt); aggiornaParticelle(dt); barre(); }
+function giro(ts){
+  requestAnimationFrame(giro);
+  const dt = Math.min(.12, (ts - ultimo)/1000 || 0); ultimo = ts;
+  if (app.fermo) return;
+  tempo += dt;
+  if (RID === 2 && app.modo === 'gioco'){ lento = dt > .05 ? lento + dt : Math.max(0, lento - dt*.5); if (lento > 2.5){ RID = 3; misura(); } }
+  if (app.modo === 'gioco') fotogramma(dt);
+  else if (app.modo === 'menu' || app.modo === 'bottega'){
+    // dietro al menu: l'esploratore sulla prima isola, con la telecamera che gli gira piano intorno
+    liv.t += dt; aggiornaRocce(dt); aggiornaVulcani(dt); posa(dt); ambiente(dt); aggiornaParticelle(dt);
+    const a = Math.sin(tempo*.25)*.7; guarda(eroe.pos.x + Math.sin(a)*6.5, eroe.pos.y + 2.8, eroe.pos.z - Math.cos(a)*6.5, eroe.pos.x, eroe.pos.y + 1.2, eroe.pos.z);
+  }
+  disegna();
+}
+costruisci(1); vaiMenu(); app.livello = S.sbloccato; disegnaMenu();
+guarda(0, 4, -6.5, 0, 2.4, 0); posa(0); ambiente(0); disegna();
+requestAnimationFrame(giro);
+// appiglio per le prove automatiche: fa avanzare il gioco a mano, senza aspettare lo schermo
+window.__lava = { get S(){ return S; }, get liv(){ return liv; }, eroe, app, avvia, tasti, inp, cam,
+  passi(sec, muto){ for (let i = Math.round(sec*60); i > 0 && app.modo === 'gioco'; i--){ tempo += 1/60; fotogramma(1/60); } if (!muto) disegna(); },
+  disegna };
+})();
+</script>
+<script src="../../piattaforma.js" data-gioco="occhio-alla-lava" data-titolo="Occhio alla Lava!" data-nome="Sala Giochi" data-pausa="#b-pausa" data-casa="sinistra"></script>
+</body>
+</html>
