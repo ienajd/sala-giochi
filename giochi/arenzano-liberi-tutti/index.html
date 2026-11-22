@@ -829,7 +829,7 @@ function muovi(o,dx,dz,r){
   return urto }
 
 /* ---------- città: arrivo, veicoli parcheggiati ---------- */
-function entraInCitta(k,daTreno){ if(G.dentro) lasciaDentro(); G.meta=null;
+function entraInCitta(k,daTreno){ if(G.dentro) lasciaDentro(); G.meta=null; G.inc=null;
   caricaCitta(k); io.citta=k; gente.length=0; gocce.length=0; testi.length=0; veicoli.length=0; G.missione=null; G.bers=null; DIN.length=0; G.treno=null; G.tTreno=25;
   C.posteggi.forEach((p,i)=>{ const tipo=p.r<.5?'auto':p.r<.82?'scooter':'ape'; veicoli.push({x:p.x,z:p.z,a:p.a,v:0,tipo:tipo,col:TINTE_AUTO[(p.r*977|0)%TINTE_AUTO.length],mio:false}) });
   const s=C.poi.find(p=>p.cat==='stazione'); let x=C.staz.x, z=C.staz.z, a=0;
@@ -1000,15 +1000,16 @@ function aggiornaIo(dt){
   /* altri corpi: non ci si passa attraverso */
   for(const p of gente){ if(p.st==='ko') continue; const dx=io.x-p.x, dz=io.z-p.z, d=Math.hypot(dx,dz); if(d<.55&&d>.01){ io.x+=dx/d*(.55-d)*.6; io.z+=dz/d*(.55-d)*.6 } }
   for(const v of veicoli){ const dx=io.x-v.x, dz=io.z-v.z, d=Math.hypot(dx,dz), r=VEICOLI[v.tipo].r+.25; if(d<r&&d>.01){ io.x+=dx/d*(r-d); io.z+=dz/d*(r-d) } }
-  for(let i=gocce.length-1;i>=0;i--){ const o=gocce[i]; o.t+=dt; if(Math.hypot(o.x-io.x,o.z-io.z)<1.1){ io.soldi+=o.val; Au.soldi(); scritta(o.x,o.z,'+'+euro(o.val),'#7dff9f'); gocce.splice(i,1) } else if(o.t>90) gocce.splice(i,1) }
+  for(let i=gocce.length-1;i>=0;i--){ const o=gocce[i]; if(o.inc) continue; o.t+=dt; if(Math.hypot(o.x-io.x,o.z-io.z)<1.1){ io.soldi+=o.val; Au.soldi(); scritta(o.x,o.z,'+'+euro(o.val),'#7dff9f'); gocce.splice(i,1) } else if(o.t>90) gocce.splice(i,1) }
 }
 function trovaBersaglio(){ let b=null, bd=2.6;
   if(io.veic){ G.bers={tipo:'scendi',txt:'Scendi'}; return }
   for(const v of veicoli){ const d=Math.hypot(v.x-io.x,v.z-io.z)-VEICOLI[v.tipo].r; if(d<1.3&&d<bd){ bd=d; b={tipo:'veic',o:v,txt:(v.mio?'Sali sul tuo ':v.ai?'Tira giù il guidatore: ':'Ruba: ')+VEICOLI[v.tipo].nome} } }
   for(const p of C.poi){ if(!p.porta) continue; const d=Math.hypot(p.porta.x-io.x,p.porta.z-io.z); if(d<(p.seg?2.3:3)&&d<bd+.6){ bd=d-.6; b={tipo:'poi',o:p,txt:(p.C.targa?'Guarda: ':p.C.treno?'Biglietteria: ':'Entra: ')+p.nome} } }
+  { const sb=storiaBersaglio(); if(sb) b=sb }
   if(!b){ const n=davanti(1.9,.9); if(n&&n.st!=='fugge'&&n.st!=='lotta'&&n.st!=='insegue') b={tipo:'parla',o:n,txt:'Parla con '+nomeDi(n)} }
   G.bers=b }
-function azione(){ const b=G.bers; if(!b) return; if(G.dentro) return azioneDentro(b); if(b.tipo==='parla') parla(b.o); else if(b.tipo==='scendi') lasciaVeicolo(); else if(b.tipo==='veic') sali(b.o); else if(b.tipo==='poi') apriNegozio(b.o) }
+function azione(){ const b=G.bers; if(!b) return; if(G.dentro) return azioneDentro(b); if(b.tipo==='storia') storiaBriefing(); else if(b.tipo==='parla') parla(b.o); else if(b.tipo==='scendi') lasciaVeicolo(); else if(b.tipo==='veic') sali(b.o); else if(b.tipo==='poi') apriNegozio(b.o) }
 
 function aggiorna(dt){
   G.t+=dt; G.ora+=dt/42; if(G.ora>=24){ G.ora-=24; G.giorno++ } calcolaLuce(G.ora);
@@ -1018,7 +1019,7 @@ function aggiorna(dt){
   if(G.dentro){ aggiornaDentro(dt); if(G.stato!=='gioco') return; aggiornaMissione(dt); G.tBers-=dt; if(G.dentro&&G.tBers<=0){ G.tBers=.12; bersaglioDentro() } }
   else { aggiornaGente(dt); if(G.stato!=='gioco') return; aggiornaMissione(dt); aggiornaTreno(dt);
   G.tPopola-=dt; if(G.tPopola<=0){ G.tPopola=.25; popola(); creaTraffico() } aggiornaTraffico(dt);
-  G.tBers-=dt; if(G.tBers<=0){ G.tBers=.12; trovaBersaglio() } aggiornaMeta() }
+  G.tBers-=dt; if(G.tBers<=0){ G.tBers=.12; trovaBersaglio() } aggiornaStoria(dt); aggiornaMeta() }
   /* stelle: calano se nessun carabiniere ti vede */
   if(G.stelle>0){ let visto=false; for(const p of gente) if(p.tipo==='cc'&&p.st!=='ko'&&Math.hypot(p.x-io.x,p.z-io.z)<26&&vede(p.x,p.z,io.x,io.z)){ visto=true; break }
     if(visto) G.tStelle=0; else { G.tStelle+=dt; if(G.tStelle>24){ G.stelle--; G.tStelle=0; if(G.stelle===0){ avviso('Non ti cercano più.'); Au.vinto() } } } Au.sirena(G.stelle>=2) } else Au.sirena(false);
@@ -1059,8 +1060,8 @@ function mettiFigure(){
 
 /* ---------- salvataggio ---------- */
 function salvaPartita(){ if(G.stato==='titolo'||G.stato==='carica'||G.dentro) return; if(io.veic&&io.veic.mio) io.scooter={citta:C.k,x:io.veic.x,z:io.veic.z,a:io.veic.a};
-  salva('partita',{v:1,pers:io.pers,x:io.x,z:io.z,a:io.a,salute:io.salute,energia:io.energia,soldi:io.soldi,conto:io.conto,forza:io.forza,dest:io.dest,vel:io.vel,guida:io.guida,look:io.look,zaino:io.zaino,provati:io.provati,casa:io.casa,box:io.box,citta:io.citta,stat:io.stat,scooter:io.scooter||null,ora:G.ora,giorno:G.giorno}) }
-function caricaPartita(){ if(G.dentro) lasciaDentro(); const s=leggi('partita',null); if(!s||!DATI[s.citta]) return false; io.pers=s.pers||io.pers||'tommy'; Object.assign(io,{salute:s.salute,energia:s.energia,soldi:s.soldi,conto:s.conto,forza:s.forza,dest:s.dest,vel:s.vel,guida:s.guida||0,zaino:s.zaino||[],provati:s.provati||{},casa:!!s.casa,box:!!s.box,scooter:s.scooter||null});
+  salva('partita',{v:1,pers:io.pers,storia:io.storia||0,x:io.x,z:io.z,a:io.a,salute:io.salute,energia:io.energia,soldi:io.soldi,conto:io.conto,forza:io.forza,dest:io.dest,vel:io.vel,guida:io.guida,look:io.look,zaino:io.zaino,provati:io.provati,casa:io.casa,box:io.box,citta:io.citta,stat:io.stat,scooter:io.scooter||null,ora:G.ora,giorno:G.giorno}) }
+function caricaPartita(){ if(G.dentro) lasciaDentro(); const s=leggi('partita',null); if(!s||!DATI[s.citta]) return false; io.pers=s.pers||io.pers||'tommy'; io.storia=s.storia||0; G.inc=null; Object.assign(io,{salute:s.salute,energia:s.energia,soldi:s.soldi,conto:s.conto,forza:s.forza,dest:s.dest,vel:s.vel,guida:s.guida||0,zaino:s.zaino||[],provati:s.provati||{},casa:!!s.casa,box:!!s.box,scooter:s.scooter||null});
   Object.assign(io.stat,s.stat||{}); if(s.look){ io.look=Object.assign({},s.look,{id:++_idLook}) } G.ora=s.ora||9.5; G.giorno=s.giorno||1; entraInCitta(s.citta); if(s.x>2&&s.z>2&&s.x<C.w-2&&s.z<C.h-2&&palazzoIn(s.x,s.z,-1)<0){ io.x=s.x; io.z=s.z; io.a=s.a||0; io.va=io.a } return true }
 
 /* ============================================================
@@ -1153,7 +1154,7 @@ function nuovaRipetizione(){ const m=G.mini; m.zona=tra(.25,.75); m.larg=Math.ma
 function aggiornaMini(dt){ const m=G.mini; if(!m) return; m.t+=dt*m.vel; m.pos=.5+.5*Math.sin(m.t*2.2); const e=document.getElementById('mark'); if(e) e.style.left=(m.pos*100)+'%'; if(colpo('Space','Enter')) AZ.spingi() }
 ov.addEventListener('click',e=>{ const b=e.target.closest('[data-a]'); if(!b||b.disabled) return; Au.avvia(); const f=AZ[b.dataset.a]; if(f) f(b.dataset) });
 
-function nuovaPartita(){ if(G.dentro) lasciaDentro(); Object.assign(io,{salute:100,energia:100,soldi:40,conto:800,forza:1,dest:0,vel:0,guida:0,zaino:[],provati:{},casa:false,box:false,scooter:null,look:null}); io.stat={pugni:0,ko:0,furti:0,rapine:0,arresti:0,consegne:0,treni:0,spesi:0}; faiLooks(); G.ora=9.5; G.giorno=1; G.stelle=0; entraInCitta('arenzano');
+function nuovaPartita(){ if(G.dentro) lasciaDentro(); io.storia=0; G.inc=null; G.meta=null; Object.assign(io,{salute:100,energia:100,soldi:40,conto:800,forza:1,dest:0,vel:0,guida:0,zaino:[],provati:{},casa:false,box:false,scooter:null,look:null}); io.stat={pugni:0,ko:0,furti:0,rapine:0,arresti:0,consegne:0,treni:0,spesi:0}; faiLooks(); G.ora=9.5; G.giorno=1; G.stelle=0; entraInCitta('arenzano');
   avviso('Sei appena sceso dal treno con 40 euro in tasca. La città è tua.',6); avviso(tocco?'Leva per camminare · E per entrare nei negozi · 🗺 per la mappa':'W A S D per camminare · E per entrare nei negozi · M per la mappa',9) }
 function schermoTitolo(){ if(G.dentro) lasciaDentro(); G.stato='titolo'; const c=leggi('partita',null);
   apri('<div class="carta" style="max-width:520px"><h1>ARENZANO<b>LIBERI TUTTI</b></h1><p>Il centro di Arenzano com\'è davvero: le vie, i palazzi, i negozi con i loro nomi, la stazione, il lungomare. Passeggi, compri, ti alleni, prendi il treno. Oppure rubi, meni le mani e scappi dai carabinieri.</p><div class="riga">'+(c?'<button class="b" data-a="continua">Continua'+(PERSONAGGI[c.pers]?' con '+PERSONAGGI[c.pers].nome:'')+'</button>':'')+'</div><p class="sotto" style="margin:14px 0 0">'+(c?'Nuova partita: ':'')+'scegli con chi giocare</p><div class="riga" style="margin-top:6px"><button class="b'+(c?' sec':'')+'" data-a="gioca" data-k="tommy">🟥 Tommy<br><small style="font-weight:400">il più piccolo, maglia rossa</small></button><button class="b'+(c?' sec':'')+'" data-a="gioca" data-k="marty">🟦 Marty<br><small style="font-weight:400">il più grande, pigiama a quadretti</small></button></div><div class="riga"><button class="b sec" data-a="come">Come si gioca</button></div>'+(tocco&&innerHeight>innerWidth?'<p style="color:#ffd24a">Gira il telefono in orizzontale: si gioca molto meglio.</p>':'')+(T3.ok?'':'<p style="color:#ffd24a">Su questo dispositivo la grafica 3D vera non parte: stai vedendo la versione semplice. Su iPhone, iPad e computer recenti il gioco è molto più bello.</p>')+'<p class="sotto" style="margin-top:14px">Mappa © OpenStreetMap contributors. È un gioco: nomi e luoghi sono veri, tutto quello che succede è inventato.</p></div>',false) }
@@ -1205,9 +1206,9 @@ function hud(){
   radar(u);
   if(G.tVia>0&&G.via){ g.globalAlpha=clamp(G.tVia,0,1); let pv=(tocco?19:24)*u; g.font='italic 800 '+pv+'px '+FONTE; const lv=g.measureText(G.via).width, mxv=W-(tocco?420:230)*u; if(lv>mxv) pv*=mxv/lv;
     if(tocco) testo(G.via+' · '+C.nome,W/2,H-16*u,pv,'#fff','center','italic 800'); else { testo(G.via,dx,H-26*u,pv,'#fff','right','italic 800'); testo(C.nome,dx,H-52*u,13*u,'#ffd24a','right','700') } g.globalAlpha=1 }
-  if(G.meta&&!G.missione&&!G.dentro){ const m=G.meta, d=Math.hypot(m.x-io.x,m.z-io.z)|0; pillola(W/2-150*u,54*u,300*u,30*u,'rgba(10,14,20,.78)'); testo('📍 '+m.nome+' · '+d+' m',W/2,69*u,14*u,'#59e0ff','center','800',0) }
+  if((G.meta||G.inc)&&!G.missione&&!G.dentro){ const m=G.meta, d=m?(Math.hypot(m.x-io.x,m.z-io.z)|0):0, tx=G.inc?'⭐ '+storiaTesto()+(m?' · '+d+' m':''):'📍 '+m.nome+' · '+d+' m'; g.font='800 '+(14*u)+'px '+FONTE; const lw=Math.min(W-24*u,g.measureText(tx).width+36*u); pillola(W/2-lw/2,54*u,lw,30*u,'rgba(10,14,20,.78)'); testo(tx,W/2,69*u,14*u,G.inc?(G.inc.t>0&&G.inc.t<20?'#ff8a8a':'#ffd24a'):'#59e0ff','center','800',0) }
   if(G.missione){ const m=G.missione, r=Math.max(0,m.tempo-m.t)|0, d=Math.hypot(m.x-io.x,m.z-io.z)|0; pillola(W/2-170*u,54*u,340*u,30*u,'rgba(10,14,20,.78)'); testo('📦 '+m.a.nome+' · '+d+' m · '+r+' s',W/2,69*u,14*u,r<15?'#ff8a8a':'#ffd24a','center','800',0) }
-  let y=20*u; for(const m of G.msg){ const a=clamp(Math.min(m.t*4,(m.dur-m.t)*2),0,1); g.globalAlpha=a; g.font='700 '+(15*u)+'px '+FONTE; const w=Math.min(W-30*u,g.measureText(m.txt).width+28*u); pillola(W/2-w/2,y-13*u+(G.missione?74*u:0),w,26*u,'rgba(10,14,20,.8)'); testo(m.txt,W/2,y+(G.missione?74*u:0),15*u,'#fff','center','700',0); g.globalAlpha=1; y+=31*u }
+  let y=20*u; for(const m of G.msg){ const a=clamp(Math.min(m.t*4,(m.dur-m.t)*2),0,1); g.globalAlpha=a; g.font='700 '+(15*u)+'px '+FONTE; const w=Math.min(W-30*u,g.measureText(m.txt).width+28*u); pillola(W/2-w/2,y-13*u+((G.missione||G.meta||G.inc)?74*u:0),w,26*u,'rgba(10,14,20,.8)'); testo(m.txt,W/2,y+((G.missione||G.meta||G.inc)?74*u:0),15*u,'#fff','center','700',0); g.globalAlpha=1; y+=31*u }
   if(G.bers&&G.stato==='gioco'){ g.font='800 '+(16*u)+'px '+FONTE; const t=G.bers.txt, w=g.measureText(t).width+62*u, yy=H-(tocco?54:74)*u; pillola(W/2-w/2,yy-17*u,w,34*u,'rgba(10,14,20,.82)'); pillola(W/2-w/2+5*u,yy-12*u,30*u,24*u,'#ffd24a'); testo('E',W/2-w/2+20*u,yy+1*u,15*u,'#1a1300','center','900',0); testo(t,W/2+18*u,yy+1*u,16*u,'#fff','center','800',0) }
   if(G.arresto>.15){ testo('Ti stanno ammanettando: scappa!',W/2,H*.3,20*u,'#7fb6ff','center','900') }
   if(io.nuota) testo('Stai nuotando',W/2,H-110*u,14*u,'#bfe6ff','center','700');
@@ -1701,7 +1702,8 @@ function tre_disegna(dt,titolo){
   for(const v of veicoli){ if(Math.abs(v.x-cam.x)>420||Math.abs(v.z-cam.z)>420) continue; const mv=T3.veic[v.tipo]; if(!mv||mv.c.count>=220) continue; const cv3=Math.cos(v.a), sv3=Math.sin(v.a), hv3=alt(v.x,v.z); P3.e.set(0,-v.a,Math.atan2(alt(v.x+cv3*1.4,v.z+sv3*1.4)-alt(v.x-cv3*1.4,v.z-sv3*1.4),2.8),'YZX'); P3.q.setFromEuler(P3.e); P3.e.order='XYZ'; P3.p.set(v.x,hv3+QUOTA,v.z); P3.s.set(1,1,1); P3.m.compose(P3.p,P3.q,P3.s);
     mv.c.setMatrixAt(mv.c.count,P3.m); P3.k.set(v.tipo==='cc'?'#14182a':v.col); mv.c.setColorAt(mv.c.count,P3.k); mv.d.setMatrixAt(mv.d.count,P3.m); mv.c.count++; mv.d.count++;
     if(v.tipo==='scooter'&&v.ai&&v.pilota) persona3(v.x,hv3+QUOTA+.1,v.z,v.a,v.pilota,'s',0) }
-  for(const o of gocce){ if(B3.count>=B3.instanceMatrix.count) break; P3.e.set(0,o.t*3,0); P3.q.setFromEuler(P3.e); P3.p.set(o.x,alt(o.x,o.z)+.5+Math.abs(Math.sin(o.t*3))*.2,o.z); P3.s.set(.42,.06,.24); P3.m.compose(P3.p,P3.q,P3.s); B3.setMatrixAt(B3.count,P3.m); P3.k.set('#3fbf6a'); B3.setColorAt(B3.count,P3.k); B3.count++ }
+  if(!titolo&&!G.dentro) storiaDisegna3();
+  for(const o of gocce){ if(B3.count>=B3.instanceMatrix.count) break; o.t+=o.inc?dt:0; P3.e.set(0,o.t*3,0); P3.q.setFromEuler(P3.e); P3.p.set(o.x,alt(o.x,o.z)+.5+Math.abs(Math.sin(o.t*3))*.2,o.z); if(o.inc){ P3.p.y+=.9; P3.s.set(.5,.5,.5) } else P3.s.set(.42,.06,.24); P3.m.compose(P3.p,P3.q,P3.s); B3.setMatrixAt(B3.count,P3.m); P3.k.set(o.inc?'#ffd24a':'#3fbf6a'); B3.setColorAt(B3.count,P3.k); B3.count++ }
   for(const m of [C3,S3,B3]){ m.instanceMatrix.needsUpdate=true; if(m.instanceColor) m.instanceColor.needsUpdate=true }
   for(const k in T3.veic){ const mv=T3.veic[k]; mv.c.instanceMatrix.needsUpdate=true; mv.d.instanceMatrix.needsUpdate=true; if(mv.c.instanceColor) mv.c.instanceColor.needsUpdate=true }
   /* treno, faro, saracinesche */
@@ -1899,7 +1901,66 @@ function diDire(k){ const P=G.parla; if(!P) return; const n=P.n, D=G.dentro;
     else { Au.no(); scritta(n.x,n.z,ok?'Non ho niente!':'AIUTO!','#ff8a8a'); if(!n.dentro){ n.st=R()<.4?'lotta':'fugge'; n.t=n.st==='lotta'?0:10 } else n.st='fugge'; reato(1,3,true) } } }
 function luogoQualsiasi(){ let b=null, bd=1e9; for(const p of C.poi){ if(!p.porta) continue; const dd=Math.hypot(p.porta.x-io.x,p.porta.z-io.z); if(dd<bd){ bd=dd; b=p } } return b }
 /* la meta chiesta a un passante: si spegne quando ci arrivi */
-function aggiornaMeta(){ const m=G.meta; if(m&&Math.hypot(m.x-io.x,m.z-io.z)<7){ avviso('Sei arrivato: '+m.nome+'.'); Au.vinto(); G.meta=null } }
+function aggiornaMeta(){ const m=G.meta; if(m&&!m.storia&&Math.hypot(m.x-io.x,m.z-io.z)<7){ avviso('Sei arrivato: '+m.nome+'.'); Au.vinto(); G.meta=null } }
+
+/* ===== 12 · LA STORIA: sette missioni ad Arenzano =====
+   Personaggi inventati che aspettano davanti a posti veri. Ogni missione è una fila di passi semplici:
+   vai (raggiungi un posto), veicolo (sali su un mezzo), raccogli (passa da più punti), stelle (semina i carabinieri), torna.
+   Il progresso sta in io.storia e si salva con la partita. Le missioni ci sono solo ad Arenzano. */
+var STORIA=[
+  {titolo:'La focaccia della nonna',chi:'Nonna Rina',dove:['Il Vascello'],cat:'bar',premio:20,
+   intro:'Ciao {N}! Che bravo che sei passato. Mi faresti una commissione? Corri alla focacceria e portami un pezzo di focaccia, ma calda: se arriva fredda non la mangio.',
+   passi:[{t:'vai',cat:'forno',txt:'Corri alla focacceria',tempo:150},{t:'torna',txt:'Riporta la focaccia calda a Nonna Rina',tempo:150}],fine:'«Ancora calda! Tieni, questi sono per te. E non dirlo a tuo padre.»'},
+  {titolo:'Volantini per la sagra',chi:'la Franca dell\'edicola',dove:['Mingo'],cat:'tabacchi',premio:50,
+   intro:'{N}, capiti a fagiolo. Sabato c\'è la sagra e i volantini sono ancora tutti qui. Portali tu nei negozi: cinque posti, uno per uno. Fai in fretta che poi chiudono.',
+   passi:[{t:'raccogli',n:5,raggio:320,txt:'Porta i volantini nei negozi',tempo:260}],fine:'«Tutti consegnati? Sei una scheggia. Ecco la paghetta.»'},
+  {titolo:'Il motorino di Zio Gigi',chi:'Zio Gigi',dove:['BriBar'],cat:'bar',premio:80,
+   intro:'{N}! Mi hanno «preso in prestito» il motorino un\'altra volta. Io da qui non mi posso muovere: trovamene uno e portamelo alla stazione, che devo prendere il treno delle cinque. Non voglio sapere dove lo trovi.',
+   passi:[{t:'veicolo',tipo:'scooter',txt:'Trova uno scooter e saltaci su'},{t:'vai',cat:'stazione',veic:true,txt:'Porta lo scooter alla stazione',tempo:200}],fine:'«Eccolo qua! Oh, somiglia proprio al mio. Tieni, e acqua in bocca.»'},
+  {titolo:'Gara sul lungomare',chi:'Walter il bagnino',dove:['Bagni'],cat:'bagni',premio:120,
+   intro:'Ti credi veloce, {N}? Sali su un mezzo qualunque e tocca tutte e sei le bandierine prima che finisca il tempo. Il record è mio, e me lo tengo stretto.',
+   passi:[{t:'veicolo',txt:'Sali su un mezzo: auto, scooter o Ape'},{t:'raccogli',n:6,raggio:520,txt:'Tocca le bandierine',tempo:170}],fine:'«Non ci credo. Record battuto. Tieni il premio, ma la rivincita la voglio.»'},
+  {titolo:'Guardie e ladri',chi:'Zio Gigi',dove:['BriBar'],cat:'bar',premio:150,
+   intro:'{N}, ho fatto una scommessa con il maresciallo: dice che in questo paese non gli scappa nessuno. Fatti inseguire e seminali. Se ti prendono, io non ti conosco.',
+   passi:[{t:'stelle',n:2,txt:'Semina i carabinieri senza farti prendere'}],fine:'«L\'hai fatto davvero! Il maresciallo paga da bere a tutti. Questa è la tua parte.»'},
+  {titolo:'Il tesoro dei Saraceni',chi:'Don Piero',dove:['Parrocchia'],cat:'chiesa',premio:300,
+   intro:'Figliolo, in sacrestia ho trovato una vecchia carta: parla di un tesoro nascosto dai pirati saraceni. Sali al Santuario e guarda verso il mare, poi cerca alla Torre. Io sono troppo vecchio per le salite.',
+   passi:[{t:'vai',nomi:['Santuario','Bambino'],cat:'chiesa',txt:'Sali al Santuario'},{t:'punto',ed:'Saraceni',txt:'Cerca alla Torre dei Saraceni'},{t:'torna',txt:'Torna da Don Piero con quello che hai trovato'}],fine:'«Monete antiche! Metà alla parrocchia e metà a te, che te la sei guadagnata.»'},
+  {titolo:'Gelati per tutti',chi:'Nonna Rina',dove:['Il Vascello'],cat:'bar',premio:250,
+   intro:'{N}, oggi è la mia festa e offro il gelato a tutto il paese. Ma si scioglie! Prendi un mezzo e portalo ai miei amici: sono sei, sparsi per Arenzano.',
+   passi:[{t:'veicolo',txt:'Prendi un mezzo: il gelato si scioglie'},{t:'raccogli',n:6,raggio:600,txt:'Consegna i gelati',tempo:230}],fine:'«Tutti serviti! Sei il più in gamba di Arenzano. Questo paese adesso è casa tua.»'}
+];
+var _datore=null;
+function luogoStoria(nomi,cat){ for(const n of nomi||[]){ const p=C.poi.find(q=>q.porta&&q.nome.indexOf(n)>=0); if(p) return p } return C.poi.find(q=>q.porta&&q.cat===cat&&q.x>20&&q.z>20&&q.x<C.w-20&&q.z<C.h-20)||null }
+function fuoriDa(p,d){ const f=p.fuori||{x:0,z:0}; return {x:clamp(p.porta.x+f.x*d,3,C.w-3),z:clamp(p.porta.z+f.z*d,3,C.h-3)} }
+function datoreStoria(){ if(C.k!=='arenzano') return null; const n=io.storia||0; if(n>=STORIA.length) return null; if(_datore&&_datore.n===n&&_datore.c===C) return _datore;
+  const def=STORIA[n], p=luogoStoria(def.dove,def.cat)||luogoStoria(['Stazione'],'stazione')||C.poi.find(q=>q.porta); if(!p) return null; const q=fuoriDa(p,2.2); _datore={n:n,c:C,def:def,x:q.x,z:q.z,L:nuovoLook(casuale(semeDi(def.chi)),{donna:/Nonna|Franca/.test(def.chi),gonna:/Nonna|Franca/.test(def.chi),capelli:/Nonna|Don/.test(def.chi)?'#d8d8d8':'#3a2a1e',maglia:/Don/.test(def.chi)?'#15151a':/Walter/.test(def.chi)?'#d63c3c':/Gigi/.test(def.chi)?'#2f6fd6':'#8a4fb0',pant:/Don/.test(def.chi)?'#15151a':'#3a3d40',cappello:null,borsa:false,calvo:false})}; return _datore }
+function storiaBersaglio(){ if(G.inc) return null; const d=datoreStoria(); if(d&&Math.hypot(d.x-io.x,d.z-io.z)<2.8) return {tipo:'storia',txt:'Parla con '+d.def.chi}; return null }
+function storiaBriefing(){ const d=datoreStoria(); if(!d) return; G.stato='menu'; Au.click(); const N=PERSONAGGI[io.pers]?PERSONAGGI[io.pers].nome:'ragazzo';
+  apri('<div class="carta"><h2>'+esc(d.def.titolo)+'</h2><div class="sotto">'+esc(d.def.chi)+' · missione '+(d.n+1)+' di '+STORIA.length+' · premio '+euro(d.def.premio)+'</div><p>«'+esc(d.def.intro.replace(/\{N\}/g,N))+'»</p><div class="riga"><button class="b" data-a="storiaSi">Ci penso io</button><button class="b sec" data-a="esci">Non adesso</button></div></div>') }
+function storiaPasso(){ const I=G.inc, s=I.def.passi[I.i]; I.t=s.tempo||0; I.p=null; I.arr=io.stat.arresti; G.meta=null;
+  if(s.t==='vai'){ let b=null, bd=1e9; for(const p of C.poi){ if(!p.porta) continue; const perNome=(s.nomi||[]).some(n=>p.nome.indexOf(n)>=0); if(!perNome&&(s.nomi||p.cat!==s.cat)) continue; const dd=Math.abs(Math.hypot(p.porta.x-io.x,p.porta.z-io.z)-240); if(dd<bd){ bd=dd; b=p } } if(!b) b=luogoStoria(null,s.cat); if(b){ const q=fuoriDa(b,1.6); I.p={x:q.x,z:q.z,nome:b.nome} } }
+  else if(s.t==='punto'){ const e=C.ed.find(b=>b.nome&&b.nome.indexOf(s.ed)>=0); if(e){ const cx=(e.bb[0]+e.bb[2])/2, cz=(e.bb[1]+e.bb[3])/2, ni=nodoVicino(cx,cz,220); I.p=ni>=0?{x:C.nodi[ni].x,z:C.nodi[ni].z,nome:e.nome}:{x:cx,z:cz,nome:e.nome} } }
+  else if(s.t==='torna'){ I.p={x:I.dx,z:I.dz,nome:I.def.chi} }
+  else if(s.t==='raccogli'){ const cand=C.poi.filter(p=>p.porta&&!p.C.targa&&p.x>8&&p.z>8&&p.x<C.w-8&&p.z<C.h-8).map(p=>[p,Math.hypot(p.porta.x-io.x,p.porta.z-io.z)]).filter(q=>q[1]>55&&q[1]<s.raggio); for(let k=0;k<s.n&&cand.length;k++){ const q=cand.splice(R()*cand.length|0,1)[0], f=fuoriDa(q[0],2.2); gocce.push({x:f.x,z:f.z,val:0,t:0,inc:true,nome:q[0].nome}) } I.tot=gocce.filter(o=>o.inc).length }
+  else if(s.t==='stelle'){ G.stelle=Math.max(G.stelle,s.n||2); G.tStelle=0; Au.no() }
+  if(!I.p&&s.t!=='veicolo'&&s.t!=='raccogli'&&s.t!=='stelle'){ storiaAvanti(); return }
+  avviso(s.txt+'.',4) }
+function storiaAvanti(){ const I=G.inc; I.i++; if(I.i<I.def.passi.length){ Au.click(); storiaPasso(); return }
+  const def=I.def; G.inc=null; G.meta=null; io.soldi+=def.premio; io.storia=(io.storia||0)+1; _datore=null; Au.vinto(); grande('MISSIONE COMPIUTA',def.titolo+' · +'+euro(def.premio),'#7dff9f',4); avviso(def.fine,6);
+  if(io.storia>=STORIA.length) avviso('Hai finito la storia. Arenzano resta tutta da girare.',8); salvaPartita() }
+function storiaFallita(perche){ const I=G.inc; if(!I) return; for(let i=gocce.length-1;i>=0;i--) if(gocce[i].inc) gocce.splice(i,1); G.inc=null; G.meta=null; Au.perso&&Au.no(); grande('MISSIONE FALLITA',perche,'#ff8a8a',3.5); avviso('Torna da '+I.def.chi+' per riprovare.',5) }
+function aggiornaStoria(dt){ if(G.dentro) return; const I=G.inc;
+  if(!I){ const d=datoreStoria(); if(d&&!G.missione){ const dd=Math.hypot(d.x-io.x,d.z-io.z); if(!G.meta&&dd>14) G.meta={x:d.x,z:d.z,nome:'Missione: '+d.def.chi,storia:true}; else if(G.meta&&G.meta.storia&&dd<=14) G.meta=null } return }
+  const s=I.def.passi[I.i]; if(I.t>0){ I.t-=dt; if(I.t<=0){ storiaFallita('Tempo scaduto'); return } }
+  if(s.t==='vai'||s.t==='torna'||s.t==='punto'){ G.meta={x:I.p.x,z:I.p.z,nome:I.p.nome,storia:true}; if(Math.hypot(I.p.x-io.x,I.p.z-io.z)<(io.veic?9:5)&&(!s.veic||io.veic)) storiaAvanti() }
+  else if(s.t==='veicolo'){ if(io.veic&&(!s.tipo||io.veic.tipo===s.tipo)) storiaAvanti() }
+  else if(s.t==='raccogli'){ let vicino=null, vd=1e9, n=0; for(let i=gocce.length-1;i>=0;i--){ const o=gocce[i]; if(!o.inc) continue; const dd=Math.hypot(o.x-io.x,o.z-io.z); if(dd<(io.veic?5:2.4)){ gocce.splice(i,1); Au.soldi(); scritta(o.x,o.z,'✔','#ffd24a'); continue } n++; if(dd<vd){ vd=dd; vicino=o } }
+    I.resto=n; if(!n){ storiaAvanti(); return } G.meta={x:vicino.x,z:vicino.z,nome:vicino.nome,storia:true} }
+  else if(s.t==='stelle'){ if(io.stat.arresti!==I.arr){ storiaFallita('Ti hanno preso'); return } if(G.stelle===0) storiaAvanti() } }
+function storiaTesto(){ const I=G.inc; if(!I) return ''; const s=I.def.passi[I.i]; return s.txt+(s.t==='raccogli'&&I.tot?' ('+(I.tot-(I.resto===undefined?I.tot:I.resto))+' di '+I.tot+')':'')+(I.t>0?' · '+Math.ceil(I.t)+' s':'') }
+function storiaDisegna3(){ if(G.inc) return; const d=datoreStoria(); if(!d||Math.abs(d.x-cam.x)>200||Math.abs(d.z-cam.z)>200) return; persona3(d.x,alt(d.x,d.z)+QUOTA,d.z,Math.atan2(io.z-d.z,io.x-d.x),d.L,'f',0); const B3=T3.scatole; if(B3.count<B3.instanceMatrix.count){ P3.e.set(0,G.t*2,0); P3.q.setFromEuler(P3.e); P3.p.set(d.x,alt(d.x,d.z)+QUOTA+2.35+Math.sin(G.t*3)*.08,d.z); P3.s.set(.16,.42,.16); P3.m.compose(P3.p,P3.q,P3.s); B3.setMatrixAt(B3.count,P3.m); P3.k.set('#ffd24a'); B3.setColorAt(B3.count,P3.k); B3.count++ } }
+Object.assign(AZ,{ storiaSi(){ const d=datoreStoria(); chiudi(); G.stato='gioco'; if(!d) return; G.inc={def:d.def,i:0,t:0,p:null,dx:d.x,dz:d.z}; G.meta=null; grande(d.def.titolo,d.def.chi,'#ffd24a',2.6); storiaPasso() } });
 
 </script>
 <link rel="icon" href="../../icone/icona.svg" type="image/svg+xml">
