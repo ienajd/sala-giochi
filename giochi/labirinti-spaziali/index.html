@@ -135,6 +135,39 @@ button{touch-action:manipulation}
 #quizO button:hover{border-color:var(--accent)}
 #quizO button.no{opacity:.4;text-decoration:line-through}
 #quizM{color:var(--gold);font-weight:700;min-height:1.4em}
+
+/* telefono in verticale: il cruscotto non deve coprire il labirinto */
+#bMore{display:none}
+.more{display:contents}
+#app.carta #pad{display:none}
+@media (max-width:720px){
+  #hud{padding-block:8px}
+  .top{flex-wrap:nowrap;align-items:flex-start;gap:8px}
+  .mission{flex:1 1 auto;padding:6px 11px;pointer-events:auto;cursor:pointer;border-radius:10px}
+  .mission b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mission span{display:none}
+  .mission::after{content:"Tocca per missione e indizi ▾";font-size:11.5px;color:var(--accent);font-weight:700}
+  .mission.open b{white-space:normal}
+  .mission.open span{display:block;font-size:13px}
+  .mission.open::after{content:"Chiudi ▴"}
+  .btns{flex:0 0 auto;flex-wrap:nowrap;position:relative;gap:6px}
+  .btns button{padding:8px 12px;font-size:14px}
+  #bMore{display:inline-block}
+  .more{display:none;position:absolute;right:0;top:calc(100% + 6px);flex-direction:column;gap:6px;align-items:stretch;background:var(--solid);border:1px solid var(--line);border-radius:12px;padding:8px;z-index:6;min-width:170px}
+  .btns.open .more{display:flex}
+  .bottom{align-items:flex-end}
+  .panel{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 8px;max-width:calc(100vw - 32px);border-radius:10px}
+  #inv{gap:4px}
+  .slot{width:30px;height:30px;border-radius:7px}.slot svg{width:24px;height:24px}
+  #mode{font-size:11px;gap:5px}.pill{padding:2px 8px}
+  #stats{font-size:12px;gap:9px}
+  #toast{top:68px;font-size:15px;padding:8px 14px}
+}
+@media (max-width:720px){
+  #pad{display:none !important}                      /* sui telefoni ci si muove trascinando il dito: niente frecce sopra la mappa */
+  #prompt{top:auto;bottom:104px;font-size:14px;padding:10px 18px}
+}
+#prompt{pointer-events:auto;cursor:pointer}
 </style>
 <style>#hud{padding-top:max(12px,env(safe-area-inset-top,0px));padding-bottom:max(12px,env(safe-area-inset-bottom,0px))}</style></head><body><div id="app">
   <canvas id="c" tabindex="0" aria-label="Labirinto in 3D"></canvas>
@@ -149,24 +182,27 @@ button{touch-action:manipulation}
       <div id="cards"></div>
       <p class="keys">Frecce o WASD per muoverti · Spazio per usare teletrasporti, leve e cabine · M per vedere tutta la mappa</p>
       <p class="keys" id="homeHint" hidden>Su iPad e iPhone: tocca Condividi e poi «Aggiungi alla schermata Home». Si apre come un'app, a tutto schermo.</p>
-      <p class="keys" id="touchHint" hidden>Con le dita: striscia sullo schermo per muoverti, oppure usa le frecce in basso. Il tasto USA serve per teletrasporti, leve e cabine.</p>
+      <p class="keys" id="touchHint" hidden>Con le dita: appoggia un dito e trascinalo dove vuoi andare; tienilo giù per continuare. Per teletrasporti, leve e cabine tocca la scritta che compare.</p>
     </div>
   </section>
 
   <div id="hud" hidden>
     <div class="top">
-      <div class="mission">
+      <div class="mission" id="mis">
         <b id="lvname"></b>
         <span id="lvmission"></span>
         <span id="lvhint"></span>
       </div>
       <div class="btns">
         <button id="bView" type="button">Mappa</button>
-        <button id="bFull" type="button">Schermo intero</button>
-        <button id="bHelp" type="button">Aiuto</button>
-        <button id="bSound" type="button">Suono: sì</button>
-        <button id="bRestart" type="button">Ricomincia</button>
-        <button id="bMenu" type="button">Menu</button>
+        <button id="bMore" type="button" aria-label="Altri comandi" aria-expanded="false">☰</button>
+        <span class="more">
+          <button id="bFull" type="button">Schermo intero</button>
+          <button id="bHelp" type="button">Aiuto</button>
+          <button id="bSound" type="button">Suono: sì</button>
+          <button id="bRestart" type="button">Ricomincia</button>
+          <button id="bMenu" type="button">Menu</button>
+        </span>
       </div>
     </div>
     <div id="prompt" hidden></div>
@@ -776,7 +812,7 @@ function updateHud() {
   const st = R.stat(S), t = G.t0 ? (G.tEnd || performance.now()) - G.t0 : 0;
   $('#stats').innerHTML = '<span>Mosse ' + S.moves + '</span><span>' + st[0] + ' ' + st[1] + '</span><span>Tempo ' + fmtTime(t) + '</span>';
   const it = itemAt(G.pos), p = $('#prompt'); let txt = '';
-  if (it && !G.done) { if (it.k === 'tp') txt = 'SPAZIO · teletrasporto ' + it.d; else if (it.k === 'lever') txt = 'SPAZIO · gira la leva'; else if (it.k === 'booth') txt = 'SPAZIO · salta nel ' + (S.mode ? 'PASSATO' : 'FUTURO'); }
+  if (it && !G.done) { const pre = matchMedia('(pointer: coarse)').matches ? 'TOCCA QUI' : 'SPAZIO'; if (it.k === 'tp') txt = pre + ' · teletrasporto ' + it.d; else if (it.k === 'lever') txt = pre + ' · gira la leva'; else if (it.k === 'booth') txt = pre + ' · salta nel ' + (S.mode ? 'PASSATO' : 'FUTURO'); }
   p.textContent = txt; p.hidden = !txt;
 }
 function getBest() { try { return JSON.parse(localStorage.getItem('labirinti-best') || '{}'); } catch (e) { return {}; } }
@@ -816,6 +852,7 @@ function startLevel(id, fast) {
   if (!fast && !AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
   if (AC && AC.state === 'suspended') AC.resume();
   CUR = id;
+  if (!fast) { $('#mis').classList.remove('open'); $('.btns').classList.remove('open'); }
   if (id === 'carta') { Carta.start(); return; }
   Carta.stop();
   loadLevel(id); buildScene();
@@ -1114,8 +1151,8 @@ const Carta = (() => {
     const w = cv.width, h = cv.height; if (!w || !h) return;
     cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalAlpha = 1; cx.fillStyle = '#10162e'; cx.fillRect(0, 0, w, h);
     if (!S || !map || !map.complete || !mask) { cx.fillStyle = '#a3b3d8'; cx.font = '600 ' + Math.round(h / 28) + 'px sans-serif'; cx.textAlign = 'center'; cx.fillText('Apro il foglio…', w / 2, h / 2); return; }
-    const dp = cv.width / Math.max(1, cv.clientWidth), mtP = Math.min(120, h / dp * .17) * dp, mbP = Math.min(150, h / dp * .2) * dp;      // spazio per il cruscotto, sopra e sotto
-    const Sc = w / (w > h ? 1750 : 1150), Sf = Math.min(w / (D.W + 140), (h - mtP - mbP) / (D.H + 60));
+    const dp = cv.width / Math.max(1, cv.clientWidth), mtP = (hudBox[0] + 10) * dp, mbP = (hudBox[1] + 10) * dp;      // spazio occupato dal cruscotto, sopra e sotto
+    const Sc = w / (w > h ? 1750 : 900), Sf = Math.min(w / (D.W + 140), (h - mtP - mbP) / (D.H + 60));
     S.z += (S.zt - S.z) * Math.min(1, dt * 5);
     const sc = lerp(Sc, Sf, S.z), vw = w / sc, vh = h / sc;
     const mt = mtP / sc, mb = mbP / sc;
@@ -1161,14 +1198,15 @@ const Carta = (() => {
     if (drag && joy) { cx.globalAlpha = .5; cx.strokeStyle = '#fff'; cx.lineWidth = 2 * u; cx.beginPath(); cx.arc(drag.x, drag.y, 46 * u, 0, 7); cx.stroke(); cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(drag.x + joy[0] * 46 * u, drag.y + joy[1] * 46 * u, 16 * u, 0, 7); cx.fill(); cx.globalAlpha = 1; }
     const vg = cx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * .5, w / 2, h / 2, Math.max(w, h) * .8); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.42)'); cx.fillStyle = vg; cx.fillRect(0, 0, w, h);
   }
-  let hudT = 0;
+  let hudT = 0, hudBox = [70, 70];
+  function measure() { const a = $('#app').getBoundingClientRect(), t = document.querySelector('#hud .top').getBoundingClientRect(), b = document.querySelector('#hud .panel').getBoundingClientRect(); hudBox = [Math.max(0, Math.min(a.height * .3, t.bottom - a.top)), Math.max(0, Math.min(a.height * .3, a.bottom - b.top))]; }
   function frame(t, dt) {
     if (!cv || cv.hidden) return;
     if (S && mask) {
       const paused = !$('#help').hidden || !$('#confirm').hidden || !$('#win').hidden;
       if (S.anim) { const a = S.anim; a.t += dt; const k = Math.min(1, a.t / a.dur); a.fn(k); if (k >= 1) { S.anim = null; a.end && a.end(); } }
       else if (!paused) step(dt, t);
-      hudT += dt; if (hudT > .5) { hudT = 0; hud(); }
+      hudT += dt; if (hudT > .5) { hudT = 0; hud(); measure(); }
     }
     draw(t, dt);
   }
@@ -1181,7 +1219,7 @@ const Carta = (() => {
     cv.addEventListener('wheel', e => { e.preventDefault(); if (S) S.zt = e.deltaY > 0 ? 1 : 0; $('#bView').textContent = S && S.zt ? 'Vicino' : 'Mappa'; }, { passive: false });
   }
   function start() {
-    bindOnce(); MODE = 'carta'; cam.orbit = false;
+    bindOnce(); MODE = 'carta'; cam.orbit = false; $('#app').classList.add('carta');
     ['#menu', '#help', '#win', '#confirm', '#quiz'].forEach(s => { $(s).hidden = true; });
     cv.hidden = false; $('#c').style.visibility = 'hidden'; $('#hud').hidden = false; size(); clearInput(); S = null;
     $('#lvname').textContent = D.title; $('#lvmission').textContent = 'Apri le porte con gli indovinelli, trova la chiave ed esci dalla porta in basso a destra.';
@@ -1191,9 +1229,9 @@ const Carta = (() => {
     $('#helpTitle').textContent = D.title; $('#helpMission').textContent = 'Sei la faccina. Spingi contro le porte per aprirle: ognuna ti fa un indovinello. Trova la chiave ed esci dalla porta in basso a destra.';
     $('#helpLegend').innerHTML = D.legend; $('#helpSecretT').textContent = 'I tre indizi sulla porta giusta';
     $('#helpSecret').innerHTML = '<ul class="plain">' + D.clues.map(c => '<li>' + c + '</li>').join('') + '</ul>';
-    load().then(() => { if (MODE !== 'carta') return; reset(false); hud(); toast('Spingi contro la porta 1 per cominciare.'); cv.focus(); });
+    load().then(() => { if (MODE !== 'carta') return; reset(false); hud(); measure(); toast(matchMedia('(pointer: coarse)').matches ? 'Trascina il dito sullo schermo per muovere la faccina.' : 'Spingi contro la porta 1 per cominciare.'); cv.focus(); });
   }
-  function stop() { if (!cv) return; cv.hidden = true; $('#c').style.visibility = ''; $('#quiz').hidden = true; clearInput(); S = null; }
+  function stop() { if (!cv) return; $('#app').classList.remove('carta'); cv.hidden = true; $('#c').style.visibility = ''; $('#quiz').hidden = true; clearInput(); S = null; }
   const KM = { ArrowUp: 'u', ArrowDown: 'd', ArrowLeft: 'l', ArrowRight: 'r', w: 'u', s: 'd', a: 'l', d: 'r' };
   function key(e, down) {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -1274,16 +1312,26 @@ function goFull(on) {
   } catch (e) {}
 }
 function bind() {
+  // sui telefoni: titolo che si apre e si chiude, pulsanti secondari in un menu
+  $('#mis').addEventListener('click', () => $('#mis').classList.toggle('open'));
+  $('#bMore').onclick = () => { const o = $('.btns').classList.toggle('open'); $('#bMore').setAttribute('aria-expanded', o); };
+  document.querySelectorAll('.more button').forEach(b => b.addEventListener('click', () => { $('.btns').classList.remove('open'); $('#bMore').setAttribute('aria-expanded', false); }));
   // il browser non deve selezionare testo, aprire menu o ingrandire mentre si gioca
   ['contextmenu', 'selectstart', 'dragstart', 'gesturestart', 'gesturechange', 'dblclick'].forEach(ev => document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
   window.addEventListener('beforeunload', e => { if (MODE === 'play' && G.S && G.S.moves > 0 && !G.done) { e.preventDefault(); e.returnValue = ''; } });
   const fsUpd = () => { $('#bFull').textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? 'Esci da schermo intero' : 'Schermo intero'; };
   document.addEventListener('fullscreenchange', fsUpd); document.addEventListener('webkitfullscreenchange', fsUpd);
   // strisciata con il dito sulla scena
-  let sw = null; const cvs = $('#c');
-  cvs.addEventListener('pointerdown', e => { sw = e.pointerType === 'mouse' ? null : [e.clientX, e.clientY]; });
-  cvs.addEventListener('pointerup', e => { if (!sw) return; const dx = e.clientX - sw[0], dy = e.clientY - sw[1]; sw = null; if (MODE !== 'play' || Math.max(Math.abs(dx), Math.abs(dy)) < 24) return; if (Math.abs(dx) > Math.abs(dy)) doMove(Math.sign(dx), 0, true); else doMove(0, Math.sign(dy), true); });
-  cvs.addEventListener('pointercancel', () => { sw = null; });
+  let sw = null; const cvs = $('#c'), JD = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  cvs.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; sw = [e.clientX, e.clientY, e.pointerId]; try { cvs.setPointerCapture(e.pointerId); } catch (er) {} });
+  cvs.addEventListener('pointermove', e => {          // dito appoggiato e trascinato: si va in quella direzione finché resta giù
+    if (!sw || e.pointerId !== sw[2] || MODE !== 'play') return;
+    const dx = e.clientX - sw[0], dy = e.clientY - sw[1]; if (Math.max(Math.abs(dx), Math.abs(dy)) < 22) return;
+    const d = Math.abs(dx) > Math.abs(dy) ? JD[dx > 0 ? 0 : 1] : JD[dy > 0 ? 2 : 3];
+    if (held !== d) { held = d; doMove(d[0], d[1], true); }
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => cvs.addEventListener(ev, () => { if (!sw) return; sw = null; if (JD.indexOf(held) >= 0) held = null; }));
+  $('#prompt').addEventListener('click', use);
   let top = false; try { top = window.top === window.self; } catch (e) {}
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const alone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
