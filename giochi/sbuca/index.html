@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Sbuca!</title>
+<meta name="description" content="42 labirinti, dal più facile al più intricato: chiavi, ponti, portali, buchi neri e ascensori.">
+<meta name="theme-color" content="#16203a">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Sbuca!">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icona.png"><link rel="icon" type="image/png" href="icona.png">
+<style>
+/* Sbuca! — il labirinto occupa tutto lo schermo; sopra, una sola riga di cruscotto. Le schermate (nome, livelli, classifica) sono carte al centro. */
+:root{
+  --fondo:#16203a; --carta:#fffaf0; --inchiostro:#22283c; --tenue:#6b7389; --riga:#e6dcc6;
+  --oro:#ffc21f; --oro-scuro:#b97e00; --tasto:#ff7a3d; --tasto-scuro:#c9521c; --verde:#2fae63;
+  --tondo:ui-rounded,"SF Pro Rounded","Arial Rounded MT Bold","Nunito","Trebuchet MS",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%;overscroll-behavior:none}
+body{margin:0;background:var(--fondo);color:var(--inchiostro);font-family:var(--tondo);font-size:17px;line-height:1.4;overflow:hidden}
+#app{position:relative;height:100%;overflow:hidden;background:var(--fondo)}
+#app,#app *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#iNome{-webkit-user-select:text;user-select:text}
+h1,h2,p,ol,dl,dd{margin:0}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible,input:focus-visible{outline:3px solid #3b82f6;outline-offset:2px}
+#tela{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
+
+/* cruscotto: una riga sola */
+#hud{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;pointer-events:none;
+  padding:max(8px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) 0 max(10px,env(safe-area-inset-left,0px))}
+#hud > *{pointer-events:auto}
+.chip{background:rgba(255,250,240,.94);border-radius:999px;padding:6px 12px;font-weight:800;font-size:15px;font-variant-numeric:tabular-nums;box-shadow:0 2px 0 rgba(0,0,0,.18);white-space:nowrap}
+#hStelle{letter-spacing:.08em;color:#c9c2ad}
+#hStelle b{color:var(--oro);text-shadow:0 1px 0 var(--oro-scuro)}
+#hChiave{display:inline-flex;align-items:center;gap:6px;padding:4px 10px}
+#hChiave i{width:16px;height:16px;border-radius:50%;display:inline-block;border:2px solid var(--inchiostro)}
+#hTempo{margin-left:auto}
+#bPausa,#bMappa{background:var(--carta);border:0;border-radius:12px;height:38px;min-width:42px;padding:0 12px;font-weight:900;font-size:16px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+#bPausa:active,#bMappa:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.25)}
+#fumetto{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(8px,env(safe-area-inset-top,0px)) + 50px);width:max-content;max-width:min(520px,calc(100% - 24px));
+  background:var(--carta);border-radius:16px;padding:10px 16px;font-weight:800;text-align:center;box-shadow:0 4px 0 rgba(0,0,0,.2);pointer-events:none}
+#fumetto.entra{animation:entra .25s ease-out}
+@keyframes entra{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%)}}
+
+/* schermate */
+.schermo,.velo{position:absolute;inset:0;display:flex;overflow:auto;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.schermo{background:radial-gradient(circle at 50% 20%,#27407a,#16203a 70%)}
+.velo{background:rgba(10,14,28,.62)}
+.carta{margin:auto;width:100%;max-width:440px;background:var(--carta);border-radius:26px;padding:24px 22px;display:flex;flex-direction:column;gap:14px;text-align:center;box-shadow:0 10px 0 rgba(0,0,0,.22),0 24px 60px rgba(0,0,0,.35)}
+.carta.larga{max-width:760px;text-align:left}
+.carta.stretta{max-width:360px}
+.logo{font-size:clamp(46px,13vw,72px);line-height:1;font-weight:900;color:var(--tasto);text-shadow:0 4px 0 var(--tasto-scuro),0 8px 0 rgba(0,0,0,.12);letter-spacing:.01em;transform:rotate(-3deg);margin:4px 0 2px}
+h2{font-size:24px;font-weight:900;line-height:1.15;text-wrap:balance}
+.motto{color:var(--tenue);font-weight:700}
+.piccolo{color:var(--tenue);font-size:14.5px;font-weight:700}
+#ciao{font-weight:800;font-size:19px}
+button.grande{background:var(--tasto);color:#fff;border:0;border-radius:18px;padding:15px 18px;font-size:21px;font-weight:900;box-shadow:0 6px 0 var(--tasto-scuro);width:100%}
+button.grande:active{transform:translateY(4px);box-shadow:0 2px 0 var(--tasto-scuro)}
+.carta > button:not(.grande),.riga button{background:#fff;border:2px solid var(--riga);border-radius:14px;padding:11px 14px;font-weight:800;box-shadow:0 3px 0 var(--riga)}
+.carta > button:not(.grande):active,.riga button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--riga)}
+.riga{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.riga button{flex:1 1 auto}
+#fNome{display:flex;flex-direction:column;gap:12px}
+#iNome{font:inherit;font-size:22px;font-weight:800;text-align:center;border:3px solid var(--riga);border-radius:16px;padding:12px;background:#fff;color:var(--inchiostro);width:100%}
+#elencoNomi{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+#elencoNomi button{background:#fff;border:2px solid var(--riga);border-radius:999px;padding:8px 14px;font-weight:800}
+.testa{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.testa > :last-child{justify-self:end}
+.indietro{justify-self:start;background:none;border:0;font-weight:900;color:var(--tasto-scuro);padding:6px 4px;font-size:16px}
+.mondo{border-top:2px solid var(--riga);padding-top:12px;margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.mondo:first-child{border-top:0;margin-top:0;padding-top:0}
+.mondo h3{margin:0;font-size:19px;font-weight:900;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.mondo h3 small{font-size:14px;color:var(--tenue);font-weight:800}
+.mondo p{color:var(--tenue);font-size:14.5px;font-weight:700}
+.tessere{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.tessere{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.tessera{aspect-ratio:1/1;border-radius:16px;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:900;font-size:22px;color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25);min-width:0}
+.tessera small{font-size:13px;letter-spacing:.06em;color:rgba(255,255,255,.45)}
+.tessera small b{color:#ffe27a}
+.tessera:active{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.tessera.chiusa{background:#d9d3c3 !important;color:#a39d8d;box-shadow:0 5px 0 #bdb7a6;cursor:default}
+.tessera.prossima{outline:4px solid var(--oro);outline-offset:2px}
+#classifica{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;text-align:left}
+#classifica li{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;gap:10px;align-items:center;background:#fff;border:2px solid var(--riga);border-radius:14px;padding:10px 12px;font-weight:800}
+#classifica li.io{border-color:var(--tasto);background:#fff3ea}
+#classifica .pos{font-size:20px;text-align:center}
+#classifica .nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#classifica .st{color:var(--oro-scuro);font-variant-numeric:tabular-nums}
+#classifica .pt{font-variant-numeric:tabular-nums}
+.eyebrow{font-weight:900;letter-spacing:.12em;text-transform:uppercase;font-size:14px;color:var(--verde)}
+#fStelle{font-size:58px;line-height:1;letter-spacing:.06em;color:#d9d3c3}
+#fStelle b{color:var(--oro);text-shadow:0 3px 0 var(--oro-scuro);display:inline-block;animation:salta .45s cubic-bezier(.3,1.6,.5,1) both}
+#fStelle b:nth-child(2){animation-delay:.18s}#fStelle b:nth-child(3){animation-delay:.36s}
+@keyframes salta{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1)}}
+#fPunti{font-size:40px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+#fConti{display:grid;grid-template-columns:1fr auto;gap:4px 14px;text-align:left;font-weight:700;color:var(--tenue);font-size:15px}
+#fConti dd{text-align:right;font-variant-numeric:tabular-nums;color:var(--inchiostro)}
+.record{background:var(--oro);border-radius:999px;padding:4px 14px;font-weight:900;align-self:center}
+@media (prefers-reduced-motion:reduce){#fStelle b,#fumetto.entra{animation:none}}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="tela" tabindex="0" aria-label="Il labirinto"></canvas>
+
+  <div id="hud" hidden>
+    <button id="bPausa" type="button" aria-label="Pausa">☰</button>
+    <span id="hLiv" class="chip"></span>
+    <span id="hStelle" class="chip" aria-label="Stelline prese"></span>
+    <span id="hChiave" class="chip" hidden></span>
+    <span id="hPiano" class="chip" hidden></span>
+    <span id="hTempo" class="chip">0:00</span>
+    <button id="bMappa" type="button" hidden>Mappa</button>
+  </div>
+  <div id="fumetto" hidden></div>
+
+  <section id="sNome" class="schermo" hidden>
+    <div class="carta">
+      <h1 class="logo">Sbuca!</h1>
+      <h2>Come ti chiami?</h2>
+      <form id="fNome" autocomplete="off">
+        <input id="iNome" type="text" maxlength="12" placeholder="Il tuo nome" aria-label="Il tuo nome" enterkeyhint="go">
+        <button type="submit" class="grande">Gioca</button>
+      </form>
+      <div id="giaQui" hidden><p class="piccolo">Oppure scegli chi sta giocando:</p><div id="elencoNomi"></div></div>
+    </div>
+  </section>
+
+  <section id="sHome" class="schermo" hidden>
+    <div class="carta">
+      <h1 class="logo">Sbuca!</h1>
+      <p class="motto">42 labirinti, dal più facile al più intricato.</p>
+      <p id="ciao"></p>
+      <button id="bContinua" type="button" class="grande"></button>
+      <div class="riga">
+        <button id="bLivelli" type="button">Livelli</button>
+        <button id="bClassifica" type="button">Classifica</button>
+        <button id="bCambia" type="button">Cambia giocatore</button>
+      </div>
+      <p id="totali" class="piccolo"></p>
+    </div>
+  </section>
+
+  <section id="sLivelli" class="schermo" hidden>
+    <div class="carta larga">
+      <div class="testa"><button type="button" class="indietro" data-vai="sHome">‹ Indietro</button><h2>Livelli</h2><span id="totStelle" class="chip"></span></div>
+      <div id="mondi"></div>
+    </div>
+  </section>
+
+  <section id="sClassifica" class="schermo" hidden>
+    <div class="carta">
+      <div class="testa"><button type="button" class="indietro" data-vai="sHome">‹ Indietro</button><h2>Classifica</h2><span></span></div>
+      <p class="piccolo">Chi ha giocato su questo telefono o computer.</p>
+      <ol id="classifica"></ol>
+    </div>
+  </section>
+
+  <section id="sPausa" class="velo" hidden>
+    <div class="carta stretta">
+      <h2>Pausa</h2>
+      <button id="pRiprendi" type="button" class="grande">Riprendi</button>
+      <button id="pRicomincia" type="button">Ricomincia il livello</button>
+      <button id="pLivelli" type="button">Scegli un livello</button>
+      <button id="pSuono" type="button">Suono: sì</button>
+      <button id="pCasa" type="button">Schermata iniziale</button>
+    </div>
+  </section>
+
+  <section id="sFine" class="velo" hidden>
+    <div class="carta stretta">
+      <p id="fTitolo" class="eyebrow">Livello superato</p>
+      <div id="fStelle" aria-hidden="true"></div>
+      <div id="fPunti"></div>
+      <dl id="fConti"></dl>
+      <p id="fRecord" class="record" hidden>Nuovo record!</p>
+      <button id="fAvanti" type="button" class="grande">Avanti</button>
+      <div class="riga"><button id="fRigioca" type="button">Rigioca</button><button id="fLivelli" type="button">Livelli</button></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+const DATI = {"mondi":[{"nome":"Prato","motto":"Trova la porta d'uscita."},{"nome":"Chiavi","motto":"Ogni porta vuole la chiave del suo colore."},{"nome":"Ponti","motto":"Le strade si scavalcano."},{"nome":"Portali","motto":"Due labirinti, un pallino per passare."},{"nome":"Buchi neri","motto":"Si aprono e si chiudono. Scegli il momento."},{"nome":"Ascensori","motto":"Il labirinto ha più piani."},{"nome":"Gran finale","motto":"Tutto insieme."}],"livelli":[{"m":0,"n":0,"w":4,"h":4,"F":1,"open":[[2,2,1,2,3,3,1,0,0,1,1,2,1,1,1,0]],"vuote":[],"ponti":[],"via":[0,1,0],"uscita":[0,0,3],"oro":0,"stelle":[[0,2,0],[0,0,2],[0,0,0]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":8,"passi3":22,"sol":"SEENWESWWWSNNSESEESWWW","testo":"Trascina il dito, o usa le frecce, e porta la faccina alla porta."},{"m":0,"n":1,"w":4,"h":5,"F":1,"open":[[2,1,3,2,3,2,2,2,2,0,2,2,2,2,2,2,1,1,0,0]],"vuote":[],"ponti":[],"via":[0,1,0],"uscita":[0,1,2],"oro":0,"stelle":[[0,0,0],[0,3,4],[0,1,3]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":12,"passi3":26,"sol":"EESSSSNNNNWSSSSWNSWNNNNSES","testo":"Le stelline non sono obbligatorie. Ma tre è meglio di una!"},{"m":0,"n":2,"w":5,"h":6,"F":1,"open":[[3,0,2,3,0,2,3,1,1,0,1,3,3,0,2,2,0,3,0,2,3,2,3,1,2,0,1,1,0,0]],"vuote":[],"ponti":[],"via":[0,0,3],"uscita":[0,4,0],"oro":0,"stelle":[[0,4,1],[0,3,3],[0,1,0]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":13,"passi3":25,"sol":"SESENNEWNWWNNEWSSENEEEWNE","testo":""},{"m":0,"n":3,"w":6,"h":7,"F":1,"open":[[3,1,3,3,0,2,2,2,2,3,3,2,0,1,0,2,0,2,1,1,2,3,0,2,3,1,1,1,0,2,0,3,0,3,1,0,1,1,1,1,1,0]],"vuote":[],"ponti":[],"via":[0,2,5],"uscita":[0,0,5],"oro":0,"stelle":[[0,0,3],[0,4,3],[0,0,2]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":20,"passi3":40,"sol":"WSEENEENNNNWWNWWWSSNNEEESSSEWSWNWWEESWWS","testo":""},{"m":0,"n":4,"w":7,"h":8,"F":1,"open":[[3,0,2,2,3,2,2,1,1,3,0,0,2,2,2,1,3,1,1,0,2,3,3,3,1,3,0,2,0,0,1,2,1,0,2,1,3,1,2,3,1,2,1,1,2,2,2,2,2,1,1,0,1,0,1,0]],"vuote":[],"ponti":[],"via":[0,4,1],"uscita":[0,6,0],"oro":0,"stelle":[[0,5,6],[0,5,3],[0,0,7]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":23,"passi3":51,"sol":"NESSWWWSEEEWWWSESWWSESWWEENWNEESSENNEESSWNSENNNNNNN","testo":""},{"m":0,"n":5,"w":8,"h":9,"F":1,"open":[[3,2,1,1,1,1,1,2,2,1,2,1,3,2,3,0,1,2,0,1,2,0,1,2,2,1,2,3,1,1,2,2,3,0,2,2,3,0,3,2,1,3,1,2,3,1,2,2,2,0,1,0,0,3,2,0,1,2,1,2,2,2,2,2,1,1,1,1,1,0,1,0]],"vuote":[],"ponti":[],"via":[0,2,2],"uscita":[0,2,0],"oro":0,"stelle":[[0,0,6],[0,5,2],[0,4,7]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":30,"passi3":64,"sol":"NWNWSSESESSENNENNESNWSSEESSSWSSWWWWNWNSESEEENSENNENNENNWNENWWWWW","testo":""},{"m":1,"n":0,"w":5,"h":5,"F":1,"open":[[1,1,3,1,2,2,2,3,0,0,1,2,3,0,2,3,3,1,1,2,0,1,1,0,0]],"vuote":[],"ponti":[],"via":[0,0,4],"uscita":[0,4,1],"oro":0,"stelle":[[0,0,0],[0,0,1],[0,3,1]],"chiavi":[["v",0,1,1]],"porte":[["v",0,1,3,"E"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":13,"passi3":23,"sol":"NENWNSENSSENNEWNWWEEEES","testo":"La porta colorata si apre con la chiave dello stesso colore."},{"m":1,"n":1,"w":6,"h":6,"F":1,"open":[[1,2,1,2,3,2,3,2,1,2,2,0,2,0,1,2,1,2,3,2,3,3,3,0,2,1,2,2,0,2,1,0,0,1,1,0]],"vuote":[],"ponti":[],"via":[0,2,2],"uscita":[0,0,0],"oro":0,"stelle":[[0,5,1],[0,4,4],[0,1,2]],"chiavi":[["b",0,1,5]],"porte":[["b",0,0,1,"S"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":18,"passi3":38,"sol":"ESEENWNNESNWSSESWSNWWSWNWSSEWNNNNESNNW","testo":""},{"m":1,"n":2,"w":6,"h":7,"F":1,"open":[[3,1,1,3,0,2,2,2,1,1,3,2,0,2,2,3,2,0,2,1,3,0,0,2,3,0,1,2,3,2,2,1,2,2,0,2,1,1,1,1,1,0]],"vuote":[],"ponti":[],"via":[0,1,5],"uscita":[0,0,2],"oro":0,"stelle":[[0,5,2],[0,4,5],[0,5,0]],"chiavi":[["b",0,4,0],["r",0,2,2]],"porte":[["b",0,0,1,"S"],["r",0,3,2,"E"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":22,"passi3":40,"sol":"ESEEENNWSNESSWWNNWNNSENENESNNSWWNEWWWWSS","testo":"Puoi portare una chiave sola. Se ne prendi un'altra, lasci lì la prima."},{"m":1,"n":3,"w":7,"h":8,"F":1,"open":[[3,1,2,1,2,1,2,1,2,1,1,2,3,0,2,3,0,2,0,2,2,2,2,2,2,2,2,2,1,3,1,0,1,3,0,3,0,3,2,3,0,2,1,2,0,3,1,3,2,1,1,1,1,0,0,0]],"vuote":[],"ponti":[],"via":[0,2,3],"uscita":[0,5,0],"oro":0,"stelle":[[0,4,3],[0,4,2],[0,6,7]],"chiavi":[["p",0,6,2],["v",0,2,2]],"porte":[["v",0,4,4,"E"],["p",0,5,3,"S"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":26,"passi3":60,"sol":"SWNNEWNWNEESEESNWWNWWSESSSSWSESEENEEESNWWNENWNSEENNSSWNNNENW","testo":"Non tutte le chiavi servono per uscire. Qualcuna apre solo un premio."},{"m":1,"n":4,"w":8,"h":9,"F":1,"open":[[1,2,1,1,1,1,2,2,3,1,2,3,1,1,2,2,2,3,2,3,2,1,1,2,0,0,3,2,1,0,3,2,1,1,2,3,0,2,0,2,3,1,0,2,1,1,2,2,0,3,3,1,3,0,3,2,2,2,0,2,0,3,0,0,1,1,0,1,1,1,1,0]],"vuote":[],"ponti":[],"via":[0,1,3],"uscita":[0,3,7],"oro":0,"stelle":[[0,0,7],[0,5,2],[0,4,5]],"chiavi":[["b",0,0,6],["r",0,6,4],["v",0,5,4]],"porte":[["b",0,1,7,"S"],["v",0,6,6,"S"],["r",0,7,4,"S"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":32,"passi3":64,"sol":"NESSSWWSNEENNESSSWWSSWNSENNEENNNNNEEESWEESWSNESSSWNWWENSESSWSWWN","testo":""},{"m":1,"n":5,"w":8,"h":10,"F":1,"open":[[3,2,1,3,1,3,1,2,0,1,3,1,0,2,3,2,1,2,3,0,3,0,0,2,2,2,0,1,0,2,3,2,2,3,1,1,2,3,0,2,3,0,1,2,1,3,2,0,2,2,3,2,3,0,2,2,1,2,2,3,1,2,0,2,2,2,0,3,0,3,1,2,1,1,0,1,0,1,0,0]],"vuote":[],"ponti":[],"via":[0,0,8],"uscita":[0,0,1],"oro":1,"stelle":[[0,7,6],[0,4,8],[0,2,3]],"chiavi":[["b",0,3,3],["g",0,3,2],["r",0,2,8],["v",0,1,6]],"porte":[["v",0,0,5,"S"],["r",0,5,7,"S"],["b",0,6,1,"E"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":37,"passi3":71,"sol":"SENNNSWNNENEEESESWSWSEWNNWSSNNESEESEENNSSWWNWNENNENENNNWWWWSWSEWSNNWNWS","testo":"L'uscita è chiusa: serve la chiave d'oro. E c'è una chiave che non porta a niente."},{"m":2,"n":0,"w":5,"h":5,"F":1,"open":[[3,2,3,3,0,2,1,3,1,2,2,1,1,2,0,0,3,1,3,2,1,1,0,1,0]],"vuote":[],"ponti":[[0,2,1,"v"],[0,3,3,"v"]],"via":[0,1,2],"uscita":[0,0,3],"oro":0,"stelle":[[0,0,4],[0,4,2],[0,2,4]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":12,"passi3":38,"sol":"EESSENWWWSEWWENEEESWNNWNNESESNWWWNWSSS","testo":"Dove c'è un ponte, una strada passa sopra e l'altra sotto. Non si incrociano."},{"m":2,"n":1,"w":6,"h":6,"F":1,"open":[[2,2,2,1,3,0,2,2,1,1,3,2,1,2,3,2,2,0,2,2,0,1,3,2,3,0,1,1,3,2,1,1,1,1,0,0]],"vuote":[],"ponti":[[0,4,4,"v"]],"via":[0,1,0],"uscita":[0,2,4],"oro":0,"stelle":[[0,5,0],[0,2,0],[0,5,2]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":17,"passi3":35,"sol":"SSSSWSEEEENNNNESNWWWNSEENEWSSSESWWW","testo":""},{"m":2,"n":2,"w":6,"h":8,"F":1,"open":[[3,3,1,1,2,2,0,1,2,1,0,2,2,3,1,0,1,2,2,1,3,0,2,2,1,2,2,3,1,2,3,3,3,3,2,2,2,3,1,0,0,2,0,1,1,0,1,0]],"vuote":[],"ponti":[[0,2,5,"v"],[0,3,5,"h"]],"via":[0,4,7],"uscita":[0,3,1],"oro":0,"stelle":[[0,0,1],[0,3,3],[0,3,7]],"chiavi":[],"porte":[],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":23,"passi3":37,"sol":"ENNNWWSSWWSEEWWNENNNEWWNENWNWSNEEEESW","testo":""},{"m":2,"n":3,"w":7,"h":9,"F":1,"open":[[3,0,3,3,1,1,2,2,1,0,3,1,2,2,1,3,3,2,3,0,2,2,0,2,2,3,0,2,2,3,3,0,2,1,2,2,0,2,1,3,0,2,2,1,3,0,0,3,0,3,3,3,3,2,1,0,0,1,0,0,1,1,0]],"vuote":[],"ponti":[[0,2,4,"h"],[0,2,7,"v"]],"via":[0,1,5],"uscita":[0,6,8],"oro":0,"stelle":[[0,6,7],[0,1,1],[0,3,8]],"chiavi":[["b",0,0,3]],"porte":[["b",0,5,8,"E"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":30,"passi3":66,"sol":"NEENNNNEEESSSSSSWSEWNENNNNNNWWWWSWENESSWSSSSSSWNWNNNNSSSSEEESNESEE","testo":""},{"m":2,"n":4,"w":8,"h":9,"F":1,"open":[[3,2,1,2,2,3,1,0,2,3,1,3,0,3,3,0,2,2,2,1,3,3,1,2,2,1,3,0,0,1,0,0,3,2,2,2,2,3,1,2,0,3,3,1,0,1,2,0,3,0,1,1,1,1,3,2,3,1,0,2,3,2,2,0,1,1,1,1,0,1,1,0]],"vuote":[],"ponti":[[0,2,3,"v"],[0,5,2,"h"],[0,6,6,"h"]],"via":[0,2,0],"uscita":[0,7,5],"oro":0,"stelle":[[0,4,4],[0,7,3],[0,7,7]],"chiavi":[["p",0,7,8],["r",0,6,3]],"porte":[["r",0,2,5,"E"],["p",0,5,4,"S"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":34,"passi3":78,"sol":"ESSEEEESNWNWSSEWNNESWWWNWWNWSSSSESEEENSWWSEEEEESNWWWWWNWSWSSEEEENESEEWNNNWNEES","testo":""},{"m":2,"n":5,"w":9,"h":10,"F":1,"open":[[1,2,3,3,3,2,3,0,2,2,2,0,2,0,3,1,2,2,3,3,3,1,2,1,0,3,2,0,0,0,1,2,1,1,2,2,2,1,2,3,0,3,2,2,0,3,2,1,0,2,0,2,3,0,2,0,2,1,2,1,3,2,2,3,0,3,3,1,1,3,2,2,1,1,3,3,2,3,0,2,2,1,1,0,0,1,1,0,1,0]],"vuote":[],"ponti":[[0,2,8,"h"],[0,3,8,"v"],[0,6,6,"v"]],"via":[0,1,6],"uscita":[0,1,4],"oro":1,"stelle":[[0,0,0],[0,8,4],[0,0,1]],"chiavi":[["b",0,1,7],["g",0,0,3],["p",0,6,9]],"porte":[["b",0,4,9,"E"],["p",0,6,7,"S"]],"salti":[],"buchi":[],"cartelli":[],"scritte":[],"passi":48,"passi3":62,"sol":"NWSSEWSEEEESEEWNENENNNNNESSNNWNWWNWWSSWWWSNNSENNWESSEEESSWSWNW","testo":""},{"m":3,"n":0,"w":5,"h":7,"F":1,"open":[[3,3,1,0,2,0,2,3,2,2,2,1,2,1,0,1,1,1,1,0,3,3,0,1,2,2,1,1,2,2,1,1,0,1,0]],"vuote":[],"ponti":[],"via":[0,3,0],"uscita":[0,3,4],"oro":0,"stelle":[[0,4,0],[0,2,6],[0,4,3]],"chiavi":[],"porte":[],"salti":[["p",0,0,1,0,2,4]],"buchi":[],"cartelli":[],"scritte":[],"passi":13,"passi3":47,"sol":"WWSSESEEWWNNESENNSSWNWSWNNWSWWSSEEWWNNESEESENNW","testo":"Sali sul portale: sbuchi sull'altro pallino dello stesso colore."},{"m":3,"n":1,"w":6,"h":8,"F":1,"open":[[3,2,2,1,1,2,2,1,1,1,2,2,3,2,2,3,3,0,0,2,1,2,1,0,1,0,1,1,1,0,3,1,2,1,1,2,2,1,1,0,1,2,1,1,1,1,1,0]],"vuote":[],"ponti":[],"via":[0,2,4],"uscita":[0,1,6],"oro":0,"stelle":[[0,3,6],[0,5,3],[0,0,4]],"chiavi":[],"porte":[],"salti":[["p",0,3,5,0,5,4]],"buchi":[],"cartelli":[],"scritte":[],"passi":18,"passi3":54,"sol":"ENNESEWNNWWWNWSSESSWENNWNNESEEESWSSEEEESSWWWWWNNEESEWW","testo":""},{"m":3,"n":2,"w":6,"h":9,"F":1,"open":[[3,0,1,1,3,0,1,2,3,2,1,2,1,1,0,1,1,0,2,1,3,0,1,2,3,1,1,2,1,2,1,0,1,1,1,0,2,2,2,1,2,2,2,1,3,2,2,2,1,1,0,1,1,0]],"vuote":[],"ponti":[],"via":[0,5,0],"uscita":[0,5,6],"oro":0,"stelle":[[0,0,6],[0,0,2],[0,3,6]],"chiavi":[],"porte":[],"salti":[["p",0,1,5,0,2,0],["p",0,2,6,0,4,3]],"buchi":[],"cartelli":[],"scritte":[],"passi":21,"passi3":57,"sol":"WSESWWNWSWWEENESEENWNWWWNEEESEENNWSSWWNNSSEENESENNWESSENN","testo":""},{"m":3,"n":3,"w":7,"h":9,"F":1,"open":[[2,3,1,0,3,1,2,2,1,2,3,0,3,0,1,1,1,1,0,1,0,2,2,1,3,0,1,2,1,3,1,2,3,3,0,1,0,1,1,0,2,2,2,3,0,1,3,2,2,2,2,3,1,2,1,0,1,1,1,0,1,1,0]],"vuote":[],"ponti":[],"via":[0,3,0],"uscita":[0,0,6],"oro":0,"stelle":[[0,2,6],[0,6,2],[0,6,8]],"chiavi":[["r",0,3,8]],"porte":[["r",0,1,8,"E"]],"salti":[["p",0,4,2,0,4,3]],"buchi":[],"cartelli":[],"scritte":[],"passi":26,"passi3":56,"sol":"WWSESENENEESWSEWNENWWSWSEWSSENESSWSSEEWWNWWSEWWNNEWSSWNN","testo":""},{"m":3,"n":4,"w":8,"h":10,"F":1,"open":[[2,1,3,0,2,2,2,2,2,1,3,2,3,3,0,2,1,1,0,1,1,1,1,0,1,1,3,3,1,3,0,2,2,1,2,2,1,1,0,2,1,3,0,3,3,2,1,2,1,0,1,0,0,1,1,0,1,3,3,1,1,3,1,0,3,0,0,3,3,1,3,0,1,0,1,0,0,1,1,0]],"vuote":[],"ponti":[[0,5,1,"v"]],"via":[0,6,0],"uscita":[0,2,9],"oro":0,"stelle":[[0,7,9],[0,6,4],[0,1,9]],"chiavi":[["v",0,4,0]],"porte":[["v",0,4,1,"S"]],"salti":[["p",0,0,3,0,2,8],["p",0,3,0,0,7,3]],"buchi":[],"cartelli":[],"scritte":[],"passi":33,"passi3":57,"sol":"SWWNSSWNWNESSSWWNWWNNEESEWNWWWWWNWSWSEWNENEEEESESEWNWWWSW","testo":""},{"m":3,"n":5,"w":9,"h":11,"F":1,"open":[[1,1,2,1,3,2,2,2,2,1,2,2,2,2,2,1,3,0,1,1,1,1,0,1,1,1,0,3,1,1,1,0,2,3,3,2,3,1,3,1,2,3,0,2,0,3,0,3,0,1,3,2,1,2,1,0,1,1,1,0,0,1,0,3,0,1,1,1,1,3,1,2,2,1,2,3,3,3,0,1,2,3,1,3,0,0,1,2,2,0,0,1,0,1,1,1,1,1,0]],"vuote":[],"ponti":[[0,5,5,"v"]],"via":[0,3,1],"uscita":[0,8,9],"oro":1,"stelle":[[0,4,3],[0,1,10],[0,2,7]],"chiavi":[["g",0,7,8],["p",0,8,2],["r",0,3,10]],"porte":[["p",0,1,3,"E"],["r",0,6,7,"E"]],"salti":[["p",0,1,7,0,8,4],["p",0,3,0,0,7,6]],"buchi":[],"cartelli":[],"scritte":[],"passi":41,"passi3":99,"sol":"SENNESSEEEWWWNNWWENWNNWSWSSWWWNNWWNEEEEWWWWSEESSEEENNENEESWSSEESWENENEESESWWWEEENWNENWWWWEEEEEESWES","testo":""},{"m":4,"n":0,"w":5,"h":6,"F":1,"open":[[1,3,1,1,2,3,2,1,1,2,0,3,1,0,2,2,1,1,2,0,3,2,3,1,2,0,1,0,1,0]],"vuote":[],"ponti":[],"via":[0,0,2],"uscita":[0,0,5],"oro":0,"stelle":[[0,0,3],[0,3,5],[0,2,1]],"chiavi":[],"porte":[],"salti":[],"buchi":[[0,2,5,3.1,2.6]],"cartelli":[],"scritte":[],"passi":13,"passi3":35,"sol":"NENEEESWWEENWWWSSSEESESWENWWSWNWNSS","testo":"Il buco nero si apre e si chiude. Passa quando è chiuso, o torni al via!"},{"m":4,"n":1,"w":6,"h":7,"F":1,"open":[[2,3,1,2,2,2,3,0,2,1,3,2,1,1,0,2,2,2,3,1,1,1,2,0,2,2,2,2,2,2,1,2,1,1,1,0,1,1,1,1,1,0]],"vuote":[],"ponti":[],"via":[0,0,0],"uscita":[0,5,6],"oro":0,"stelle":[[0,1,4],[0,2,4],[0,0,6]],"chiavi":[],"porte":[],"salti":[],"buchi":[[0,2,0,3.3,1.6],[0,4,6,3.8,1.1]],"cartelli":[],"scritte":[],"passi":21,"passi3":35,"sol":"SENEESESSSSWWNSEENNWWWWSSENSSWEEEEE","testo":""},{"m":4,"n":2,"w":7,"h":8,"F":1,"open":[[3,3,1,0,3,1,2,2,0,3,1,2,2,2,1,1,0,1,0,1,2,2,1,1,1,2,3,2,3,0,3,3,3,0,2,2,3,0,2,0,1,0,2,2,1,3,2,3,2,1,0,1,0,1,0,0]],"vuote":[],"ponti":[],"via":[0,1,3],"uscita":[0,3,0],"oro":0,"stelle":[[0,1,1],[0,2,7],[0,0,3]],"chiavi":[],"porte":[],"salti":[],"buchi":[[0,6,1,4.2,0.2],[0,3,1,3.5,0.3],[0,5,1,0,0]],"cartelli":[],"scritte":[],"passi":23,"passi3":55,"sol":"EEESWSSSWENNNWSWSSWNNNNSSSSENNENEEENENNNWWSWWSWWNNESNEE","testo":"I buchi in fondo ai vicoli restano sempre aperti."},{"m":4,"n":3,"w":7,"h":9,"F":1,"open":[[3,3,3,1,1,0,2,2,0,1,0,3,1,0,3,1,1,0,2,3,2,3,1,3,1,1,0,0,2,2,3,2,3,1,2,3,2,2,3,0,2,2,0,2,0,3,1,0,2,2,1,2,0,2,2,2,1,1,1,1,1,0,0]],"vuote":[],"ponti":[],"via":[0,6,8],"uscita":[0,5,7],"oro":0,"stelle":[[0,0,7],[0,3,2],[0,4,7]],"chiavi":[["v",0,2,6]],"porte":[["v",0,2,3,"S"]],"salti":[],"buchi":[[0,1,7,3.2,2.8],[0,3,8,3.2,0.4],[0,3,1,0,0]],"cartelli":[],"scritte":[],"passi":28,"passi3":44,"sol":"NNNNWWSWNWSSNNNWWNEEEWWWSSSESSESWWNSEEEENSEN","testo":""},{"m":4,"n":4,"w":8,"h":10,"F":1,"open":[[2,1,2,1,2,3,1,0,3,2,1,1,3,2,2,2,0,1,1,1,2,1,3,0,1,1,1,1,2,3,3,2,1,1,1,1,0,0,1,0,2,2,2,1,1,2,3,2,3,1,3,2,1,2,2,2,0,2,0,1,2,2,2,2,1,2,3,0,3,2,2,2,1,1,1,1,0,1,0,0]],"vuote":[],"ponti":[[0,6,3,"v"]],"via":[0,0,0],"uscita":[0,7,9],"oro":0,"stelle":[[0,0,7],[0,0,9],[0,0,5]],"chiavi":[],"porte":[],"salti":[["p",0,1,7,0,5,4]],"buchi":[[0,6,4,3.7,2.2],[0,6,7,3.7,2.4],[0,7,1,0,0],[0,3,8,0,0]],"cartelli":[],"scritte":[],"passi":35,"passi3":53,"sol":"SESEEENESESSENWWSSSWEEEENNWNWWWSNNSEEESESESENNNNESSSS","testo":""},{"m":4,"n":5,"w":9,"h":10,"F":1,"open":[[2,3,3,2,2,3,1,3,0,3,0,2,2,1,3,0,0,2,2,3,0,1,2,1,2,2,2,2,1,1,0,1,1,1,3,2,0,3,1,1,2,2,2,2,0,1,1,2,1,1,1,2,3,2,2,3,0,3,3,2,2,2,2,3,0,3,0,0,3,3,0,2,1,2,2,2,1,3,0,2,2,1,0,1,1,0,1,1,0,0]],"vuote":[],"ponti":[[0,6,7,"h"]],"via":[0,6,4],"uscita":[0,3,3],"oro":0,"stelle":[[0,4,9],[0,8,4],[0,0,0]],"chiavi":[["b",0,8,9],["p",0,0,4]],"porte":[["p",0,2,3,"E"],["b",0,3,6,"S"]],"salti":[],"buchi":[[0,3,2,3.3,1.4],[0,4,0,0,0],[0,8,0,0,0]],"cartelli":[],"scritte":[],"passi":38,"passi3":80,"sol":"SSSSWNEENNESSSSNNNNWSSWWNWWSWSSEEWWNNENEESEENNNNESNWWWWNWNNWWSWSSSNNNNSENESSWSEE","testo":""},{"m":5,"n":0,"w":5,"h":5,"F":2,"open":[[1,2,3,0,2,1,1,3,3,2,2,1,2,2,2,2,2,2,0,2,1,1,0,1,0],[2,1,1,3,0,3,1,3,3,2,2,1,0,0,2,1,2,2,1,0,1,1,1,1,0]],"vuote":[],"ponti":[],"via":[0,0,1],"uscita":[1,3,3],"oro":0,"stelle":[[1,4,4],[0,3,4],[1,4,0]],"chiavi":[],"porte":[],"salti":[["a",0,0,0,1,0,0]],"buchi":[],"cartelli":[],"scritte":[],"passi":11,"passi3":43,"sol":"EEEESSSWENNNWWWNWSSSESEEEWWWNWNNEEENEWSESSW","testo":"L'ascensore ti porta all'altro piano. L'uscita è di sopra."},{"m":5,"n":1,"w":6,"h":6,"F":2,"open":[[2,3,2,3,1,2,1,2,0,3,0,0,1,3,0,2,3,0,3,1,1,0,3,2,3,2,3,1,2,0,0,1,1,0,1,0],[3,1,2,2,3,0,0,1,2,2,1,2,3,2,1,3,3,0,0,2,2,0,1,2,3,1,1,3,3,0,1,1,0,0,1,0]],"vuote":[],"ponti":[],"via":[0,0,5],"uscita":[1,0,1],"oro":0,"stelle":[[1,3,3],[0,4,1],[1,3,0]],"chiavi":[["v",1,1,1]],"porte":[["v",1,0,0,"S"]],"salti":[["a",0,3,5,1,3,5]],"buchi":[],"cartelli":[],"scritte":[],"passi":20,"passi3":40,"sol":"NNEEENNEWSSWWWSESEENEENWNWSNNNSSWNWENWWS","testo":"A volte la chiave è su un piano e la porta sull'altro."},{"m":5,"n":2,"w":6,"h":7,"F":2,"open":[[1,3,1,1,1,0,3,1,2,2,3,2,2,1,3,0,0,2,1,2,0,1,3,0,3,1,1,3,1,2,2,2,2,1,0,2,1,0,1,1,1,0],[0,0,0,0,0,0,0,0,0,0,0,0,2,3,2,2,0,0,3,2,0,2,0,0,2,2,2,2,0,0,0,1,1,0,0,0,0,0,0,0,0,0]],"vuote":[[1,0,0],[1,1,0],[1,2,0],[1,3,0],[1,4,0],[1,5,0],[1,0,1],[1,1,1],[1,2,1],[1,3,1],[1,4,1],[1,5,1],[1,4,2],[1,5,2],[1,4,3],[1,5,3],[1,4,4],[1,5,4],[1,4,5],[1,5,5],[1,0,6],[1,1,6],[1,2,6],[1,3,6],[1,4,6],[1,5,6]],"ponti":[],"via":[0,1,2],"uscita":[0,3,3],"oro":1,"stelle":[[0,2,5],[1,0,2],[1,3,2]],"chiavi":[["g",0,4,2]],"porte":[],"salti":[["a",0,2,3,1,2,3]],"buchi":[],"cartelli":[],"scritte":[],"passi":23,"passi3":63,"sol":"ESNWSSSEENNNSSSWWNNWNSENESNNWWSSESEEEESSWWWNSEEENNWNENNWSNESSWW","testo":"Un labirinto dentro il labirinto: la chiave d'oro è in cantina."},{"m":5,"n":3,"w":7,"h":8,"F":3,"open":[[2,1,2,3,2,2,2,3,2,3,0,2,1,2,2,2,0,2,1,1,2,2,1,3,1,3,0,2,2,1,1,2,1,3,2,2,1,1,1,2,0,2,1,2,3,1,1,0,2,1,0,0,1,1,1,0],[3,1,2,3,1,2,2,1,2,1,2,1,1,0,3,1,2,0,1,1,2,1,2,3,1,1,0,2,3,2,0,3,1,2,2,2,1,2,1,0,2,2,3,0,1,3,0,1,2,1,1,0,1,1,1,0],[2,1,1,2,3,2,2,3,0,3,0,2,3,0,2,2,3,1,0,3,0,3,0,2,3,0,1,0,2,1,1,2,3,1,2,3,0,1,3,1,2,2,2,2,3,0,2,2,2,1,1,1,0,1,0,0]],"vuote":[],"ponti":[],"via":[0,1,5],"uscita":[2,6,3],"oro":0,"stelle":[[1,4,5],[2,1,1],[1,6,0]],"chiavi":[],"porte":[],"salti":[["a",0,2,7,1,2,7],["a",1,1,6,2,1,6]],"buchi":[],"cartelli":[],"scritte":[],"passi":29,"passi3":117,"sol":"EEESWWSWWNNNESESESEEENWNNWWSEWNEESSESWWWNWNWNNWNENWNEESENEESENSWNWWSWNWWSESWSESWSSESWNNNNNNEWSSSSSSEENENNWNNEENNESSSE","testo":""},{"m":5,"n":4,"w":7,"h":9,"F":3,"open":[[3,1,0,2,3,2,2,2,2,3,1,0,1,0,1,2,3,0,3,1,0,2,1,3,2,2,1,2,2,2,1,2,3,2,2,2,1,3,1,3,0,2,1,1,2,3,3,3,2,3,3,0,2,0,2,0,0,0,1,1,0,1,0],[1,1,2,2,3,0,2,2,1,2,3,0,3,0,3,3,2,3,0,1,2,0,2,3,1,1,2,2,3,0,2,3,3,0,2,2,1,3,0,1,2,2,1,0,1,1,2,2,2,3,1,2,1,1,3,2,1,0,1,1,1,0,0],[3,3,1,3,1,3,2,2,0,1,0,3,0,2,0,2,3,1,1,2,2,1,1,3,3,1,3,0,3,2,0,3,2,0,2,2,3,0,2,1,1,2,2,1,3,2,2,3,0,1,2,0,0,2,1,2,1,0,1,1,1,1,0]],"vuote":[],"ponti":[[0,2,3,"v"],[0,4,5,"h"],[1,2,5,"h"],[1,5,7,"v"],[2,2,3,"h"],[2,5,3,"h"]],"via":[0,6,0],"uscita":[2,4,6],"oro":0,"stelle":[[2,0,8],[2,1,2],[2,0,2]],"chiavi":[["b",0,3,0]],"porte":[["b",0,2,1,"E"]],"salti":[["a",0,1,1,1,1,1],["a",1,0,3,2,0,3]],"buchi":[[2,6,8,3.5,0.6]],"cartelli":[],"scritte":[],"passi":40,"passi3":96,"sol":"SWNWSWNSWSSSENWWNNESWWSENSEEEEENNNWWWWWWSSNNEEEEEESSSWWWSSSWWNNWSSSESWENWNNNESSEENNESEESWSESWWNN","testo":""},{"m":5,"n":5,"w":8,"h":9,"F":3,"open":[[3,1,0,1,1,3,1,2,3,2,3,1,2,1,0,2,2,1,0,1,1,2,2,2,3,0,3,2,1,1,3,0,0,3,0,1,1,2,1,2,3,0,1,1,2,2,1,2,2,2,1,2,1,1,3,0,0,1,1,2,1,3,0,2,1,1,1,1,1,1,1,0],[3,3,1,3,1,3,0,2,2,1,2,1,2,1,0,2,2,2,2,1,1,0,2,2,2,1,3,0,3,2,2,2,2,3,3,1,2,2,3,0,0,2,3,3,0,1,1,2,2,2,2,1,0,3,0,2,3,2,1,2,2,2,3,0,0,1,0,1,0,1,1,0],[3,1,1,0,2,1,3,0,1,2,2,2,3,2,3,0,2,2,2,1,2,1,3,0,1,3,3,3,1,1,1,0,2,1,2,0,3,1,2,2,1,2,2,3,0,1,3,2,2,3,3,3,1,0,2,2,2,0,0,3,1,2,1,2,1,1,1,0,1,1,0,0]],"vuote":[],"ponti":[[1,2,4,"v"],[2,2,3,"h"],[2,6,2,"v"],[2,6,5,"v"]],"via":[0,4,7],"uscita":[2,5,0],"oro":1,"stelle":[[2,3,0],[0,0,4],[1,6,1]],"chiavi":[["g",2,7,1],["r",2,7,2],["v",0,2,6]],"porte":[["v",2,0,0,"S"],["r",2,6,0,"S"]],"salti":[["a",0,0,8,1,0,8],["a",1,0,6,2,0,6]],"buchi":[[0,4,8,3.6,2.2]],"cartelli":[],"scritte":[],"passi":46,"passi3":150,"sol":"EENENNWNWNWNWWSWNWSSSNNNESENEESESESESSWSWSWWNNWESSWWWNENNNEEESWWNNNNWNEEEESEWNWWWWSESSSSEENWWWSSSWNSSEEENNWNNWNNNWNEEEWWWSESSEEENNESEEWWNWSSEENNNSEWNW","testo":""},{"m":6,"n":0,"w":9,"h":10,"F":1,"open":[[3,3,3,0,3,3,1,1,2,2,0,1,3,0,2,1,1,2,3,0,3,1,2,1,2,2,0,0,3,1,0,2,3,3,3,2,3,1,0,3,3,1,2,0,2,1,1,2,0,2,1,2,1,0,1,3,0,1,3,2,1,0,2,2,3,1,1,3,1,1,2,2,3,1,3,0,1,2,1,1,2,1,0,0,1,1,1,0,1,0]],"vuote":[],"ponti":[[0,4,4,"v"],[0,4,6,"v"],[0,4,7,"h"],[0,6,3,"v"]],"via":[0,3,0],"uscita":[0,7,9],"oro":0,"stelle":[[0,7,5],[0,5,5],[0,6,8]],"chiavi":[["b",0,3,6],["r",0,8,6],["v",0,2,4]],"porte":[["b",0,5,7,"E"],["v",0,7,3,"E"],["r",0,7,9,"E"]],"salti":[],"buchi":[[0,7,7,3.0,1.7],[0,2,7,3.7,2.6],[0,8,2,0,0]],"cartelli":[],"scritte":[],"passi":35,"passi3":85,"sol":"WSESWSWSEWNENENENESSESSSWENWNEEESSWENNWWWSENNWNNWSWSWSWSWSEESWSEEEENWWEESEESWEENNSSSW","testo":""},{"m":6,"n":1,"w":9,"h":11,"F":1,"open":[[3,0,3,1,1,2,3,1,0,2,3,2,2,3,0,1,1,2,3,0,3,0,1,1,1,1,0,2,2,1,3,0,3,0,3,2,3,2,2,1,0,3,1,0,2,0,3,2,2,2,1,2,1,2,3,0,2,3,3,3,1,0,2,1,0,1,1,0,1,1,0,0,1,1,1,2,3,1,2,1,2,3,0,1,3,3,2,2,1,2,1,1,1,1,1,0,1,1,0]],"vuote":[],"ponti":[[0,3,9,"h"],[0,4,6,"h"],[0,4,9,"v"]],"via":[0,8,7],"uscita":[0,7,8],"oro":1,"stelle":[[0,8,0],[0,1,7],[0,2,9]],"chiavi":[["g",0,7,9],["r",0,7,5],["v",0,7,6]],"porte":[["v",0,3,0,"E"],["r",0,5,4,"E"]],"salti":[["p",0,0,8,0,2,4]],"buchi":[[0,8,10,3.1,2.8],[0,2,7,3.3,3.0]],"cartelli":[],"scritte":[],"passi":40,"passi3":110,"sol":"NNWENNWSWWSESEWWWWSWNNWSWSEWNENNWNNENENEEESWSEEEENWWNEEWWSEESWWWWNENWWWSWSWSSESENEEESSEENWWWEEESWNNEESSEENWENW","testo":""},{"m":6,"n":2,"w":8,"h":10,"F":2,"open":[[1,3,2,1,3,3,1,0,3,0,0,3,0,2,2,2,2,1,2,2,2,0,2,2,2,1,3,2,3,0,1,2,1,3,3,0,1,2,3,0,2,1,2,1,3,1,2,2,3,0,1,3,1,0,2,2,3,1,3,2,2,1,1,2,1,2,0,2,2,3,3,0,1,0,1,0,1,0,1,0],[1,3,1,3,1,2,2,2,3,3,2,0,2,2,3,2,1,0,0,1,1,1,2,0,1,2,3,3,2,3,0,2,3,1,0,0,3,1,2,2,2,1,1,1,2,1,1,2,1,2,2,2,2,2,3,2,3,3,0,3,0,1,3,0,1,3,0,1,3,0,2,2,1,1,1,0,0,1,1,0]],"vuote":[],"ponti":[[0,2,3,"v"],[0,2,4,"h"],[1,1,1,"v"],[1,1,8,"h"],[1,6,7,"h"]],"via":[0,4,2],"uscita":[1,2,8],"oro":0,"stelle":[[1,2,6],[0,5,2],[1,0,9]],"chiavi":[["b",0,5,3],["v",1,6,0]],"porte":[["b",0,4,4,"E"],["v",1,6,1,"S"]],"salti":[["a",0,7,0,1,7,0]],"buchi":[[1,5,3,3.7,2.3],[0,0,5,0,0]],"cartelli":[],"scritte":[],"passi":46,"passi3":60,"sol":"SEWSESWSWWNWNEENNNENESSNNEESWNSSSWSWNWWSWWSSESENSWSSWENNWSEE","testo":""},{"m":6,"n":3,"w":10,"h":11,"F":1,"open":[[3,0,3,1,3,3,1,1,2,2,3,0,0,3,1,3,1,0,3,2,3,2,3,2,3,0,1,1,0,2,0,1,0,0,1,1,0,1,1,0,2,3,3,1,1,3,2,3,0,2,1,3,1,2,1,0,3,3,1,0,3,0,2,1,0,3,1,3,0,2,1,1,0,1,1,1,1,1,1,0,3,3,2,3,1,3,1,2,3,0,2,2,1,0,1,2,2,0,3,2,0,1,0,1,1,1,1,1,0,0]],"vuote":[],"ponti":[[0,1,5,"v"],[0,5,1,"v"],[0,7,5,"v"],[0,7,6,"v"]],"via":[0,1,1],"uscita":[0,9,8],"oro":1,"stelle":[[0,6,2],[0,8,4],[0,3,10]],"chiavi":[["b",0,1,0],["g",0,9,10],["p",0,2,10],["r",0,9,6],["v",0,8,6]],"porte":[["b",0,2,2,"E"],["p",0,2,8,"S"],["v",0,3,4,"E"],["r",0,8,1,"S"]],"salti":[["p",0,0,10,0,9,4],["p",0,3,3,0,4,5]],"buchi":[[0,2,3,3.5,2.5],[0,3,8,3.3,1.3],[0,9,5,3.0,3.0]],"cartelli":[],"scritte":[],"passi":47,"passi3":107,"sol":"WNEWSSESENESENESSWSEEEENSWWNNNEWSSSWWNENNWSWNNENEEEESSWWEENNWWWWSWSSENESEEENNNESSEWNNESENEESSWWEEEEENESNWNE","testo":""},{"m":6,"n":4,"w":9,"h":10,"F":3,"open":[[3,1,1,2,1,2,3,2,2,2,3,3,1,0,1,2,1,0,0,2,3,0,3,0,2,3,0,3,0,2,2,2,1,1,3,2,0,1,1,2,1,3,1,0,2,3,3,2,1,2,3,1,2,0,2,0,1,3,1,1,0,0,2,0,2,2,3,0,3,2,1,2,1,2,1,2,3,0,2,3,2,1,1,1,1,1,0,1,0,0],[3,3,0,1,3,0,1,2,2,2,1,3,1,0,2,3,3,0,2,1,3,1,2,1,3,3,0,2,1,0,1,1,3,1,1,2,0,1,3,2,3,3,0,3,2,3,1,2,1,2,1,2,0,2,2,3,2,1,2,2,3,0,2,2,0,1,2,1,2,0,3,0,0,3,3,1,2,0,1,2,2,1,0,1,0,1,1,0,1,0],[3,1,2,1,3,0,1,3,2,1,0,1,3,1,1,2,2,0,3,2,1,2,1,2,2,1,2,0,2,3,0,2,2,1,2,2,1,3,1,0,2,3,2,1,2,1,2,3,1,3,0,2,1,0,3,1,3,3,3,0,0,1,2,0,3,1,2,2,3,0,2,2,1,1,0,3,1,0,1,1,2,1,1,1,1,1,1,1,1,0]],"vuote":[],"ponti":[[1,6,2,"v"],[1,7,1,"v"],[2,2,6,"v"],[2,4,5,"v"],[2,4,6,"v"]],"via":[0,7,7],"uscita":[2,8,1],"oro":1,"stelle":[[0,8,2],[0,8,0],[2,7,5]],"chiavi":[["b",0,8,9],["g",2,6,0],["r",2,1,1],["v",1,6,7]],"porte":[["b",0,5,7,"S"],["v",0,7,2,"S"],["r",2,7,4,"E"]],"salti":[["a",0,3,3,1,3,3],["a",1,5,6,2,5,6]],"buchi":[[0,4,8,3.4,2.7],[2,5,1,3.5,0.7],[2,7,3,3.7,0.3],[0,4,0,0,0],[0,5,3,0,0]],"cartelli":[],"scritte":[],"passi":71,"passi3":129,"sol":"ESSNWSWNNWSWSWNNNENWNNEESSESSNNWNNWWSSESENNEENWNNNESENSWNWSSSENEWSSWWSSWNWNNEESWSSSENWWWWNNENENNWNWWSEWNEESEEEESSESESWENNNWNNWEES","testo":""},{"m":6,"n":5,"w":15,"h":19,"F":1,"open":[[1,3,1,3,1,1,3,1,3,1,1,3,1,3,0,3,1,2,3,2,3,1,0,0,2,3,1,2,3,0,2,1,3,2,0,1,0,1,3,3,0,2,2,1,2,3,0,0,2,3,0,3,1,2,3,1,1,2,1,2,2,3,3,2,1,2,2,3,0,3,1,2,0,2,0,2,2,0,1,0,1,0,2,3,0,1,1,3,1,0,1,3,3,1,3,0,3,3,2,1,1,3,2,3,0,3,0,3,2,2,2,0,0,1,0,3,3,2,3,2,0,1,0,2,2,2,3,0,2,1,3,0,1,3,2,2,3,3,0,1,2,1,2,2,3,0,3,0,0,2,2,2,1,3,0,2,1,1,0,2,3,1,1,1,2,1,2,1,2,3,0,3,3,1,3,0,3,3,3,2,1,3,2,0,3,0,2,2,3,2,3,0,2,0,2,3,0,2,3,3,0,2,0,0,0,0,3,0,2,2,1,0,1,0,3,2,1,1,2,1,2,1,0,2,2,1,1,1,1,3,1,2,1,3,2,2,3,1,1,0,2,3,2,3,3,2,2,3,2,0,1,0,3,1,0,2,2,2,2,0,2,0,0,2,1,2,2,2,3,2,1,0,0,1,0,1,1,1,1,1,1,0,1,0,0]],"vuote":[],"ponti":[[0,1,6,"v"],[0,2,2,"v"],[0,4,13,"h"],[0,4,15,"v"],[0,4,16,"v"],[0,7,6,"v"],[0,9,2,"h"],[0,9,11,"h"],[0,10,8,"v"],[0,11,7,"v"],[0,13,8,"h"]],"via":[0,7,0],"uscita":[0,4,18],"oro":1,"stelle":[[0,13,16],[0,1,18],[0,11,17]],"chiavi":[["g",0,6,10]],"porte":[],"salti":[["p",0,0,0,0,2,18],["p",0,7,8,0,9,17],["p",0,14,0,0,14,16]],"buchi":[[0,5,7,0,0],[0,8,1,0,0],[0,5,13,0,0],[0,14,4,0,0],[0,4,5,0,0],[0,5,14,3.5,1.3],[0,2,8,3.1,0.7],[0,3,15,3.9,0.2],[0,3,9,3.9,3.0]],"cartelli":[[0,7,0,"La porta giusta non è la prima e non è l'ultima."],[0,14,18,"Il suo numero è dispari."],[0,0,16,"Il suo numero è più grande di 3."]],"scritte":[[0,1,1,"1"],[0,3,1,"2"],[0,6,1,"3"],[0,8,1,"4"],[0,11,1,"5"],[0,13,1,"6"]],"passi":69,"passi3":105,"sol":"WWWWWWWNNWSSNNESSEEEEEEEEEEEEEEWEWWWSESSWWWSEESESSSEESSWWWWSWWWWSSSEESSSSEEENSWNWWSESWENWNEESWWWWWNNWWSSE","testo":"Sei porte, una sola è buona. Primo indizio: non è la prima e non è l'ultima. Gli altri due cartelli sono dietro i portali, in fondo al corridoio."}]};
+const LV = DATI.livelli, MONDI = DATI.mondi;
+const $ = s => document.querySelector(s);
+const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
+const D4 = [[1, 0], [0, 1], [-1, 0], [0, -1]], ASSE = ['h', 'v', 'h', 'v'], LETT = 'ESWN';
+const lerp = (a, b, t) => a + (b - a) * t;
+const COLORI = { r: ['#e5383b', 'rossa'], b: ['#2f7de1', 'blu'], v: ['#2fae63', 'verde'], p: ['#9b5de5', 'viola'], g: ['#ffc21f', "d'oro"] };
+const PORTALI = ['#9b5de5', '#17b890', '#ff7a3d', '#2f7de1'];
+const TEMI = [
+  { f1: '#2f8a54', f2: '#17402a', a: '#f4f8e6', b: '#e8f0d3', m: '#2c6b40', t: '#5fbf74', p: '#d9a35a' },
+  { f1: '#c0621f', f2: '#6e2f0e', a: '#fff4e2', b: '#fde8cb', m: '#9a4511', t: '#f39a45', p: '#c98b4a' },
+  { f1: '#2278ad', f2: '#0f3f61', a: '#ecf7ff', b: '#dbeefb', m: '#1b5c88', t: '#5cb8ec', p: '#d6a560' },
+  { f1: '#6a45c2', f2: '#2c1b5e', a: '#f3ecff', b: '#e6dbfb', m: '#492d90', t: '#a283ea', p: '#cfa066' },
+  { f1: '#252e66', f2: '#090c20', a: '#e9ecf9', b: '#d9def2', m: '#222a5a', t: '#6673d4', p: '#b9925c' },
+  { f1: '#ad3647', f2: '#541722', a: '#fdeef0', b: '#f8dce0', m: '#84222f', t: '#ea7384', p: '#cf9b5f' },
+  { f1: '#9a7414', f2: '#3c2c08', a: '#fff9df', b: '#f8eec2', m: '#775610', t: '#ecc044', p: '#c98f45' },
+];
+
+// ============================================================ salvataggio (tutto sul dispositivo)
+const CHIAVE = 'sbuca-v1';
+let DB = { cur: null, suono: true, g: {} };
+try { const r = JSON.parse(localStorage.getItem(CHIAVE)); if (r && r.g) DB = r; } catch (e) {}
+function salva() { try { localStorage.setItem(CHIAVE, JSON.stringify(DB)); } catch (e) {} }
+const io = () => DB.g[DB.cur];
+function totali(g) { let s = 0, p = 0, n = 0; for (const k in g.liv) { s += g.liv[k].s; p += g.liv[k].p; n++; } return { s, p, n }; }
+function prossimo(g) { for (let i = 0; i < LV.length; i++) if (!g.liv[i]) return i; return LV.length - 1; }
+const aperto_ = (g, i) => i === 0 || !!g.liv[i - 1];
+const nomeLiv = i => (LV[i].m + 1) + '-' + (LV[i].n + 1);
+
+// ============================================================ suoni
+let AC = null, VELOCE = false;
+function nota(f, d, tipo, g, quando, a) {
+  if (!DB.suono || !AC || VELOCE) return;
+  const t = AC.currentTime + (quando || 0), o = AC.createOscillator(), v = AC.createGain();
+  o.type = tipo || 'triangle'; o.frequency.setValueAtTime(f, t); if (a) o.frequency.exponentialRampToValueAtTime(a, t + d);
+  v.gain.setValueAtTime(g || .08, t); v.gain.exponentialRampToValueAtTime(.001, t + d); o.connect(v); v.connect(AC.destination); o.start(t); o.stop(t + d + .03);
+}
+const SUONI = {
+  passo: () => nota(300, .04, 'triangle', .025), urto: () => nota(110, .1, 'square', .05),
+  stella: () => { nota(880, .1, 'triangle', .09); nota(1320, .16, 'triangle', .09, .08); },
+  chiave: () => { nota(660, .08, 'square', .05); nota(990, .12, 'square', .05, .07); },
+  porta: () => nota(180, .3, 'sawtooth', .05, 0, 90), salto: () => nota(320, .3, 'sine', .07, 0, 1300),
+  caduta: () => nota(600, .5, 'sine', .09, 0, 70), no: () => { nota(220, .1, 'square', .05); nota(160, .16, 'square', .05, .1); },
+  vinto: () => [523, 659, 784, 1047, 1319].forEach((f, i) => nota(f, .22, 'triangle', .1, i * .1)),
+};
+
+// ============================================================ regole (le stesse del programma che costruisce i livelli)
+let R = null, G = null;
+const ck = (f, x, y) => f * 10000 + y * 100 + x;
+const ckn = n => ck(n[0], n[1], n[2]);
+function lato(f, x, y, d) { return d === 0 ? f + ',' + x + ',' + y + ',E' : d === 1 ? f + ',' + x + ',' + y + ',S' : d === 2 ? f + ',' + (x - 1) + ',' + y + ',E' : f + ',' + x + ',' + (y - 1) + ',S'; }
+function aperto(f, x, y, d) {
+  const L = R.L, o = L.open[f];
+  if (d === 0) return (o[y * L.w + x] & 1) !== 0;
+  if (d === 1) return (o[y * L.w + x] & 2) !== 0;
+  if (d === 2) return x > 0 && (o[y * L.w + x - 1] & 1) !== 0;
+  return y > 0 && (o[(y - 1) * L.w + x] & 2) !== 0;
+}
+function carica(i) {
+  const L = LV[i];
+  R = { i, L, ponte: new Map(), salto: new Map(), porta: new Map(), posto: new Map(), stella: new Map(), buco: new Map(), cartello: new Map(), vuota: new Set(), col: [], posti: [], tema: TEMI[L.m] };
+  L.vuote.forEach(c => R.vuota.add(ck(c[0], c[1], c[2])));
+  L.ponti.forEach(p => R.ponte.set(ck(p[0], p[1], p[2]), p[3]));
+  L.salti.forEach((s, k) => { const a = s.slice(1, 4), b = s.slice(4, 7); R.salto.set(ckn(a), { t: s[0], da: a, a: b, k }); R.salto.set(ckn(b), { t: s[0], da: b, a, k }); });
+  L.porte.forEach(p => R.porta.set(p[1] + ',' + p[2] + ',' + p[3] + ',' + p[4], { c: p[0], f: p[1], x: p[2], y: p[3], d: p[4], aperta: false, v: 0 }));
+  L.chiavi.forEach((c, k) => { R.col.push(c[0]); R.posti.push(c.slice(1)); R.posto.set(ck(c[1], c[2], c[3]), k); });
+  L.stelle.forEach((s, k) => R.stella.set(ckn(s), k));
+  L.buchi.forEach(b => R.buco.set(ck(b[0], b[1], b[2]), { per: b[3], off: b[4], c: b }));
+  L.cartelli.forEach(c => R.cartello.set(ck(c[0], c[1], c[2]), c[3]));
+  G = { n: [L.via[0], L.via[1], L.via[2], 0], mano: -1, kp: R.col.map((c, k) => k), sm: 0, t: 0, cadute: 0, passi: 0, fine: false, coda: [], vis: null, held: null, mappa: false, cart: null, intro: 5, part: [] };
+  G.vis = { x: L.via[1], y: L.via[2], f: L.via[0], l: 0, sc: 1, a: 1, kp: G.kp.slice(), mano: -1, sm: 0, dir: 1, cam: 0, urto: 0 };
+}
+function prova(d) {
+  const [f, x, y, l] = G.n, o = R.ponte.get(ck(f, x, y));
+  if (o && ((ASSE[d] === o) !== (l === 0))) return null;
+  if (!aperto(f, x, y, d)) return null;
+  const nx = x + D4[d][0], ny = y + D4[d][1], o2 = R.ponte.get(ck(f, nx, ny));
+  return { a: [f, nx, ny, (!o2 || ASSE[d] === o2) ? 0 : 1], lato: lato(f, x, y, d) };
+}
+/** Una mossa. Ritorna 'no', 'porta' (manca la chiave), 'ok' o 'fine'. Lo stato logico cambia subito; l'animazione va in coda. */
+function avanza(d) {
+  const m = prova(d); if (!m) return 'no';
+  const p = R.porta.get(m.lato); let apri = null;
+  if (p && !p.aperta) {
+    if (G.mano < 0 || R.col[G.mano] !== p.c) { G.manca = p.c; return 'porta'; }
+    p.aperta = true; G.kp[G.mano] = -2; G.mano = -1; apri = p;
+  }
+  const da = G.n; G.n = m.a; G.passi++;
+  let salto = null, presa = null, vinto = false;
+  if (G.n[3] === 0) {
+    const s = R.salto.get(ckn(G.n)); if (s) { salto = s; G.n = [s.a[0], s.a[1], s.a[2], 0]; }
+    const c = ckn(G.n), st = R.stella.get(c);
+    if (st != null && !(G.sm & (1 << st))) { G.sm |= 1 << st; presa = 'stella'; }
+    const q = R.posto.get(c);
+    if (q != null) { const k = G.kp.indexOf(q); if (k >= 0) { if (G.mano >= 0) G.kp[G.mano] = q; G.kp[k] = -1; G.mano = k; presa = 'chiave'; } }
+    if (c === ckn(R.L.uscita)) { if (!R.L.oro || (G.mano >= 0 && R.col[G.mano] === 'g')) { vinto = true; G.fine = true; } else G.manca = 'g'; }
+  }
+  if (!VELOCE) animaMossa(da, m.a, d, apri, salto, presa, vinto);
+  return vinto ? 'fine' : 'ok';
+}
+function bucoAperto(b, t) { if (!b.per) return 1; const ph = ((t + b.off) % b.per) / b.per; return ph < .42 ? 1 : ph > .86 ? (ph - .86) / .14 * .6 : 0; }
+
+// ============================================================ animazioni in coda
+function passo(dur, upd, fine) { G.coda.push({ t: 0, dur, upd, fine }); }
+function copiaVis() { G.vis.kp = G.kp.slice(); G.vis.mano = G.mano; G.vis.sm = G.sm; aggiornaHud(); }
+function scintille(x, y, col, n) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, v = 1.2 + Math.random() * 2.4; G.part.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, t: 0, col }); } }
+function animaMossa(da, a, d, apri, salto, presa, vinto) {
+  const v = G.vis;
+  if (apri) { SUONI.porta(); passo(.16, k => { apri.v = k; }); }
+  passo(.135, k => { v.x = lerp(da[1], a[1], k); v.y = lerp(da[2], a[2], k); v.l = k < .5 ? da[3] : a[3]; v.dir = d; v.cam = k; }, () => {
+    v.x = a[1]; v.y = a[2]; v.l = a[3]; SUONI.passo();
+    if (!salto) { if (presa) { presa === 'stella' ? SUONI.stella() : SUONI.chiave(); scintille(v.x, v.y, presa === 'stella' ? '#ffc21f' : '#ffffff', 10); } copiaVis(); cartello(); }
+  });
+  if (salto) {
+    passo(.15, k => { v.sc = 1 - k; }, () => { SUONI.salto(); v.x = salto.a[1]; v.y = salto.a[2]; v.f = salto.a[0]; v.l = 0; G.tela = null; });
+    passo(.17, k => { v.sc = k; }, () => { v.sc = 1; if (presa) { presa === 'stella' ? SUONI.stella() : SUONI.chiave(); scintille(v.x, v.y, '#ffc21f', 10); } copiaVis(); cartello(); });
+  }
+  if (vinto) { passo(.5, k => { v.sc = 1 + Math.sin(k * 3.14) * .4; }, () => { SUONI.vinto(); scintille(v.x, v.y, '#ffc21f', 40); }); passo(.5, () => {}, finito); }
+  else salvaRipresa();
+}
+function cade() {
+  const v = G.vis, L = R.L; G.cadute++; SUONI.caduta();
+  passo(.3, k => { v.sc = 1 - k; }, () => { G.n = [L.via[0], L.via[1], L.via[2], 0]; v.x = L.via[1]; v.y = L.via[2]; v.f = L.via[0]; v.l = 0; G.tela = null; dici('Risucchiato! Si riparte dal via.'); });
+  passo(.25, k => { v.sc = k; }, () => { v.sc = 1; salvaRipresa(); });
+}
+let fumT = 0;
+function dici(txt, fisso) { const f = $('#fumetto'); f.textContent = txt; f.hidden = false; f.classList.remove('entra'); void f.offsetWidth; f.classList.add('entra'); clearTimeout(fumT); if (!fisso) fumT = setTimeout(() => { if (!G || !G.cart) f.hidden = true; }, 2600); }
+function cartello() { const c = R.cartello.get(ckn(G.n)); if (c) { G.cart = c; dici('📜 ' + c, true); } else if (G.cart) { G.cart = null; $('#fumetto').hidden = true; } }
+
+// ============================================================ disegno
+let tela = null, cx = null, DPR = 1, P = 48, strati = null;
+function dimensiona() { const a = $('#app'); DPR = Math.min(window.devicePixelRatio || 1, 2); tela.width = Math.round((a.clientWidth || 800) * DPR); tela.height = Math.round((a.clientHeight || 600) * DPR); if (G) G.tela = null; }
+function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function scuro(hex, k) { const n = parseInt(hex.slice(1), 16); return 'rgb(' + [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => Math.round(v * k)).join(',') + ')'; }
+/** Disegna una volta sola, per il piano in vista, il pavimento con i muri in rilievo e (a parte) i ponti. */
+function prepara(f) {
+  const L = R.L, T = R.tema, M = Math.round(P * .6), w = L.w * P + 2 * M, h = L.h * P + 2 * M;
+  const mk = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.translate(M, M); return [c, x]; };
+  const [cb, b] = mk(), [cs, s] = mk();
+  const usata = (x, y) => x >= 0 && y >= 0 && x < L.w && y < L.h && !R.vuota.has(ck(f, x, y));
+  // piastrelle, con l'ombra della tavola
+  b.save(); b.shadowColor = 'rgba(0,0,0,.4)'; b.shadowBlur = P * .35; b.shadowOffsetY = P * .16; b.fillStyle = T.a;
+  for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) if (usata(x, y)) b.fillRect(x * P - 1, y * P - 1, P + 2, P + 2);
+  b.restore();
+  for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) if (usata(x, y)) {
+    b.fillStyle = (x + y) % 2 ? T.b : T.a; b.fillRect(x * P, y * P, P, P);
+    b.fillStyle = 'rgba(255,255,255,.45)'; rr(b, x * P + P * .1, y * P + P * .1, P * .8, P * .8, P * .14); b.fill();
+  }
+  // il via e i numeri sulle porte
+  b.fillStyle = 'rgba(47,174,99,.25)'; b.beginPath(); b.arc((L.via[1] + .5) * P, (L.via[2] + .5) * P, P * .36, 0, 7); if (L.via[0] === f) b.fill();
+  L.scritte.forEach(c => { if (c[0] !== f) return; b.fillStyle = T.m; b.font = '900 ' + Math.round(P * .6) + 'px ui-rounded,"Arial Rounded MT Bold",sans-serif'; b.textAlign = 'center'; b.textBaseline = 'middle'; b.fillText(c[3], (c[1] + .5) * P, (c[2] + .55) * P); });
+  // sottopassi: la strada che passa sotto è in ombra
+  L.ponti.forEach(p => { if (p[0] !== f) return; const x = p[1] * P, y = p[2] * P, g = p[3] === 'v' ? b.createLinearGradient(x, 0, x + P, 0) : b.createLinearGradient(0, y, 0, y + P);
+    g.addColorStop(0, 'rgba(20,24,44,.12)'); g.addColorStop(.3, 'rgba(20,24,44,.6)'); g.addColorStop(.7, 'rgba(20,24,44,.6)'); g.addColorStop(1, 'rgba(20,24,44,.12)');
+    b.fillStyle = g; if (p[3] === 'v') b.fillRect(x, y + P * .16, P, P * .68); else b.fillRect(x + P * .16, y, P * .68, P); });
+  // muri: fianco scuro con ombra, sopra chiaro, filo di luce
+  const seg = [];
+  for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) if (usata(x, y)) {
+    if (!aperto(f, x, y, 0) || !usata(x + 1, y)) seg.push([x + 1, y, x + 1, y + 1]);
+    if (!aperto(f, x, y, 1) || !usata(x, y + 1)) seg.push([x, y + 1, x + 1, y + 1]);
+    if (!usata(x - 1, y)) seg.push([x, y, x, y + 1]);
+    if (!usata(x, y - 1)) seg.push([x, y, x + 1, y]);
+  }
+  const traccia = (c, dy) => { c.beginPath(); seg.forEach(q => { c.moveTo(q[0] * P, q[1] * P + dy); c.lineTo(q[2] * P, q[3] * P + dy); }); c.stroke(); };
+  b.lineCap = 'round'; b.lineJoin = 'round';
+  b.save(); b.shadowColor = 'rgba(0,0,0,.33)'; b.shadowBlur = P * .14; b.shadowOffsetY = P * .07; b.shadowOffsetX = P * .03; b.strokeStyle = scuro(T.m, .62); b.lineWidth = P * .2; traccia(b, P * .07); b.restore();
+  b.strokeStyle = T.t; b.lineWidth = P * .2; traccia(b, -P * .03);
+  b.strokeStyle = 'rgba(255,255,255,.4)'; b.lineWidth = P * .05; traccia(b, -P * .075);
+  // ponti: la strada sopra, con l'ombra sotto e i parapetti
+  L.ponti.forEach(p => { if (p[0] !== f) return; const x = p[1] * P, y = p[2] * P, v = p[3] === 'v', a = P * .17, lw = P * .66;
+    s.save(); s.shadowColor = 'rgba(0,0,0,.5)'; s.shadowBlur = P * .2; s.shadowOffsetY = P * .08; s.fillStyle = T.p;
+    if (v) rr(s, x + a, y - P * .06, lw, P * 1.12, P * .1); else rr(s, x - P * .06, y + a, P * 1.12, lw, P * .1); s.fill(); s.restore();
+    s.strokeStyle = scuro(T.p, .72); s.lineWidth = Math.max(1, P * .025);
+    for (let k = 1; k < 5; k++) { s.beginPath(); if (v) { s.moveTo(x + a, y + P * k / 5); s.lineTo(x + a + lw, y + P * k / 5); } else { s.moveTo(x + P * k / 5, y + a); s.lineTo(x + P * k / 5, y + a + lw); } s.stroke(); }
+    s.strokeStyle = scuro(T.p, .5); s.lineWidth = P * .075; s.lineCap = 'round';
+    [0, 1].forEach(q => { s.beginPath(); if (v) { s.moveTo(x + a + q * lw, y - P * .02); s.lineTo(x + a + q * lw, y + P * 1.02); } else { s.moveTo(x - P * .02, y + a + q * lw); s.lineTo(x + P * 1.02, y + a + q * lw); } s.stroke(); });
+    s.strokeStyle = 'rgba(255,255,255,.35)'; s.lineWidth = P * .025;
+    [0, 1].forEach(q => { s.beginPath(); if (v) { s.moveTo(x + a + q * lw - P * .02, y); s.lineTo(x + a + q * lw - P * .02, y + P); } else { s.moveTo(x, y + a + q * lw - P * .02); s.lineTo(x + P, y + a + q * lw - P * .02); } s.stroke(); });
+  });
+  return { base: cb, sopra: cs, M };
+}
+function stellaPath(c, x, y, r, rot) { c.beginPath(); for (let i = 0; i < 10; i++) { const a = rot + i * Math.PI / 5 - Math.PI / 2, q = i % 2 ? r * .46 : r; c[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * q, y + Math.sin(a) * q); } c.closePath(); }
+function chiavePath(c, x, y, s, col) {
+  c.save(); c.translate(x, y); c.fillStyle = 'rgba(255,255,255,.75)'; c.beginPath(); c.arc(0, 0, s * .5, 0, 7); c.fill(); c.rotate(-.5); c.lineWidth = s * .055; c.lineJoin = 'round'; c.strokeStyle = '#22283c'; c.fillStyle = col;
+  c.beginPath(); c.arc(-s * .2, 0, s * .2, 0, 7); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.arc(-s * .24, 0, s * .07, 0, 7); c.fill(); c.stroke();
+  c.fillStyle = col; c.fillRect(0, -s * .06, s * .42, s * .12); c.strokeRect(0, -s * .06, s * .42, s * .12); c.fillRect(s * .24, s * .06, s * .07, s * .13); c.strokeRect(s * .24, s * .06, s * .07, s * .13); c.fillRect(s * .35, s * .06, s * .07, s * .1); c.strokeRect(s * .35, s * .06, s * .07, s * .1);
+  c.restore();
+}
+function faccina(c, x, y, r, dir, t, sc, corre) {
+  if (sc < .03) return;
+  r *= sc; const sy = corre ? 1 + Math.sin(t * 22) * .07 : 1 + Math.sin(t * 3) * .025;
+  c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(x, y + r * .78, r * .9, r * .32, 0, 0, 7); c.fill();
+  c.save(); c.translate(x, y - r * .1 - (corre ? Math.abs(Math.sin(t * 22)) * r * .12 : 0)); c.scale(2 - sy, sy);
+  const g = c.createRadialGradient(-r * .3, -r * .35, r * .1, 0, 0, r); g.addColorStop(0, '#fff3a6'); g.addColorStop(.55, '#ffd43b'); g.addColorStop(1, '#f2a900');
+  c.fillStyle = g; c.strokeStyle = '#22283c'; c.lineWidth = Math.max(1.5, r * .11); c.beginPath(); c.arc(0, 0, r, 0, 7); c.fill(); c.stroke();
+  const fx = D4[dir][0] * r * .2, fy = D4[dir][1] * r * .16;
+  c.fillStyle = '#22283c'; [-1, 1].forEach(s => { c.beginPath(); c.ellipse(fx + s * r * .32, fy - r * .14, r * .1, r * .14, 0, 0, 7); c.fill(); });
+  c.beginPath(); c.arc(fx, fy + r * .1, r * .42, .15 * Math.PI, .85 * Math.PI); c.stroke();
+  c.restore();
+}
+function disegna(t, dt) {
+  const W = tela.width, H = tela.height, L = R.L, T = R.tema, v = G.vis, f = v.f;
+  const g0 = cx.createLinearGradient(0, 0, 0, H); g0.addColorStop(0, T.f1); g0.addColorStop(1, T.f2);
+  cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalAlpha = 1; cx.fillStyle = g0; cx.fillRect(0, 0, W, H);
+  // quanto grande: tutto il labirinto se ci sta comodo, altrimenti si segue la faccina
+  const fu = $('#fumetto'), alto = 58 * DPR, basso = 14 * DPR, la = W - 20 * DPR, al = H - alto - basso;
+  const sottoFumetto = fu.hidden ? alto : Math.min(H * .4, (fu.getBoundingClientRect().bottom - tela.getBoundingClientRect().top + 10) * DPR);
+  const pTutto = Math.min(la / (L.w + .5), al / (L.h + .5)), comodo = 40 * DPR;
+  const segue = pTutto < comodo && !G.mappa, p = Math.max(8, Math.round(segue ? Math.min(54 * DPR, la / 6.2) : Math.min(pTutto, 92 * DPR)));
+  $('#bMappa').hidden = pTutto >= comodo; if (!$('#bMappa').hidden) $('#bMappa').textContent = G.mappa ? 'Vicino' : 'Mappa';
+  if (p !== P || !G.tela || G.telaF !== f) { P = p; G.tela = prepara(f); G.telaF = f; }
+  const bw = L.w * P, bh = L.h * P;
+  let ox = (W - bw) / 2, oy = alto + (al - bh) / 2;
+  if (segue) {
+    const tx = W / 2 - (v.x + .5) * P, ty = alto + al / 2 - (v.y + .5) * P, mg = P * .6;
+    const cl = (o, tot, sp, a0) => tot + 2 * mg <= sp ? a0 + (sp - tot) / 2 : Math.min(a0 + mg, Math.max(a0 + sp - tot - mg, o));
+    const dx = cl(tx, bw, W, 0), dy = Math.max(cl(ty, bh, al, alto), Math.min(sottoFumetto + P * .5 - v.y * P, sottoFumetto + P * .6));      // la faccina non finisce sotto il fumetto
+    if (G.camX == null) { G.camX = dx; G.camY = dy; }
+    const k = Math.min(1, dt * 7); G.camX += (dx - G.camX) * k; G.camY += (dy - G.camY) * k; ox = G.camX; oy = G.camY;
+  } else G.camX = null;
+  const M = G.tela.M, X = x => ox + (x + .5) * P, Y = y => oy + (y + .5) * P;
+  cx.drawImage(G.tela.base, Math.round(ox - M), Math.round(oy - M));
+  // uscita
+  if (L.uscita[0] === f) {
+    const x = X(L.uscita[1]), y = Y(L.uscita[2]), chiusa = L.oro && !(v.mano >= 0 && R.col[v.mano] === 'g');
+    const gl = cx.createRadialGradient(x, y, 0, x, y, P * .75); gl.addColorStop(0, chiusa ? 'rgba(255,194,31,.45)' : 'rgba(47,174,99,.6)'); gl.addColorStop(1, 'rgba(255,255,255,0)'); cx.fillStyle = gl; cx.beginPath(); cx.arc(x, y, P * .75, 0, 7); cx.fill();
+    cx.fillStyle = chiusa ? '#8a6a2f' : '#2fae63'; cx.strokeStyle = '#22283c'; cx.lineWidth = P * .06; rr(cx, x - P * .26, y - P * .34, P * .52, P * .66, P * .22); cx.fill(); cx.stroke();
+    cx.fillStyle = chiusa ? '#ffc21f' : '#fff'; cx.beginPath(); cx.arc(x + P * .1, y, P * .055, 0, 7); cx.fill();
+    if (chiusa) { cx.fillStyle = '#ffc21f'; cx.strokeStyle = '#22283c'; cx.lineWidth = P * .04; rr(cx, x - P * .13, y - P * .02, P * .26, P * .2, P * .04); cx.fill(); cx.stroke(); cx.beginPath(); cx.arc(x, y - P * .03, P * .08, Math.PI, 0); cx.stroke(); }
+  }
+  // portali e ascensori
+  R.salto.forEach(s => { if (s.da[0] !== f) return; const x = X(s.da[1]), y = Y(s.da[2]);
+    if (s.t === 'p') { const col = PORTALI[s.k % PORTALI.length];
+      cx.fillStyle = '#181c33'; cx.beginPath(); cx.arc(x, y, P * .3, 0, 7); cx.fill();
+      cx.lineCap = 'round'; for (let i = 0; i < 3; i++) { cx.strokeStyle = col; cx.globalAlpha = 1 - i * .25; cx.lineWidth = P * (.075 - i * .015); cx.beginPath(); cx.arc(x, y, P * (.33 - i * .085), t * (2 + i) + i * 2, t * (2 + i) + i * 2 + 4.2); cx.stroke(); } cx.globalAlpha = 1;
+    } else {
+      cx.fillStyle = '#3a4160'; cx.strokeStyle = '#22283c'; cx.lineWidth = P * .05; rr(cx, x - P * .34, y - P * .34, P * .68, P * .68, P * .1); cx.fill(); cx.stroke();
+      cx.strokeStyle = '#ffc21f'; cx.lineWidth = P * .05; cx.setLineDash([P * .1, P * .08]); rr(cx, x - P * .27, y - P * .27, P * .54, P * .54, P * .06); cx.stroke(); cx.setLineDash([]);
+      const su = s.a[0] > f, by = Math.sin(t * 4) * P * .03; cx.fillStyle = '#fff'; cx.beginPath(); if (su) { cx.moveTo(x, y - P * .17 + by); cx.lineTo(x + P * .15, y + P * .08 + by); cx.lineTo(x - P * .15, y + P * .08 + by); } else { cx.moveTo(x, y + P * .17 + by); cx.lineTo(x + P * .15, y - P * .08 + by); cx.lineTo(x - P * .15, y - P * .08 + by); } cx.fill();
+    } });
+  // buchi neri
+  R.buco.forEach(b => { if (b.c[0] !== f) return; const x = X(b.c[1]), y = Y(b.c[2]), a = bucoAperto(b, G.t), r = P * (.1 + .26 * a);
+    cx.fillStyle = 'rgba(120,70,200,' + (.25 + .3 * a) + ')'; cx.beginPath(); cx.arc(x, y, r * 1.35, 0, 7); cx.fill();
+    cx.fillStyle = '#07060f'; cx.beginPath(); cx.arc(x, y, r, 0, 7); cx.fill();
+    cx.strokeStyle = '#b388ff'; cx.lineWidth = P * .04; cx.lineCap = 'round'; cx.beginPath(); cx.arc(x, y, r * 1.12, t * 3, t * 3 + 3.6); cx.stroke(); });
+  // cartelli
+  R.cartello.forEach((txt, c) => { const ff = Math.floor(c / 10000), y0 = Math.floor(c % 10000 / 100), x0 = c % 100; if (ff !== f) return; const x = X(x0), y = Y(y0);
+    cx.fillStyle = '#8a5a2b'; cx.fillRect(x - P * .03, y, P * .06, P * .3); cx.fillStyle = '#e9c88f'; cx.strokeStyle = '#6b4420'; cx.lineWidth = P * .04; rr(cx, x - P * .26, y - P * .28, P * .52, P * .34, P * .06); cx.fill(); cx.stroke();
+    cx.fillStyle = '#6b4420'; cx.font = '900 ' + Math.round(P * .26) + 'px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('!', x, y - P * .1); });
+  // stelline e chiavi
+  L.stelle.forEach((s, k) => { if (s[0] !== f || (v.sm & (1 << k))) return; const x = X(s[1]), y = Y(s[2]) + Math.sin(t * 3 + k) * P * .04;
+    cx.fillStyle = 'rgba(255,194,31,.3)'; cx.beginPath(); cx.arc(x, y, P * .36, 0, 7); cx.fill();
+    cx.fillStyle = '#ffc21f'; cx.strokeStyle = '#8a5d00'; cx.lineWidth = P * .045; cx.lineJoin = 'round'; stellaPath(cx, x, y, P * .27, Math.sin(t * 2 + k) * .18); cx.fill(); cx.stroke();
+    cx.fillStyle = 'rgba(255,255,255,.7)'; cx.beginPath(); cx.arc(x - P * .07, y - P * .08, P * .04, 0, 7); cx.fill(); });
+  v.kp.forEach((q, k) => { if (q < 0) return; const c = R.posti[q]; if (c[0] !== f) return; chiavePath(cx, X(c[1]), Y(c[2]) + Math.sin(t * 3 + k * 2) * P * .04, P * .8, COLORI[R.col[k]][0]); });
+  // porte
+  R.porta.forEach(p => { if (p.f !== f || p.v >= 1) return; const col = COLORI[p.c][0], k = 1 - p.v, ver = p.d === 'E';
+    const x = ox + (p.x + (ver ? 1 : .5)) * P, y = oy + (p.y + (ver ? .5 : 1)) * P, lu = P * .78 * k, sp = P * .2;
+    cx.fillStyle = scuro(col, .6); if (ver) rr(cx, x - sp / 2, y - lu / 2 + P * .06, sp, lu, sp * .4); else rr(cx, x - lu / 2, y - sp / 2 + P * .06, lu, sp, sp * .4); cx.fill();
+    cx.fillStyle = col; cx.strokeStyle = '#22283c'; cx.lineWidth = P * .035; if (ver) rr(cx, x - sp / 2, y - lu / 2, sp, lu, sp * .4); else rr(cx, x - lu / 2, y - sp / 2, lu, sp, sp * .4); cx.fill(); cx.stroke();
+    if (k > .6) { cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(x, y, P * .055, 0, 7); cx.fill(); } });
+  // la faccina, sotto o sopra i ponti
+  const corre = G.coda.length > 0, px = X(v.x) + (v.urto > 0 ? Math.sin(v.urto * 40) * P * .05 : 0), py = Y(v.y);
+  if (v.l === 1) { faccina(cx, px, py, P * .3, v.dir, t, v.sc, corre); cx.drawImage(G.tela.sopra, Math.round(ox - M), Math.round(oy - M)); }
+  else { cx.drawImage(G.tela.sopra, Math.round(ox - M), Math.round(oy - M)); faccina(cx, px, py, P * .3, v.dir, t, v.sc, corre); }
+  if (v.mano >= 0) chiavePath(cx, px + P * .3, py - P * .34, P * .42, COLORI[R.col[v.mano]][0]);
+  G.part = G.part.filter(q => (q.t += dt) < .7);
+  G.part.forEach(q => { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 6 * dt; cx.globalAlpha = 1 - q.t / .7; cx.fillStyle = q.col; cx.beginPath(); cx.arc(X(q.x), Y(q.y), P * .06, 0, 7); cx.fill(); }); cx.globalAlpha = 1;
+  if (drag && drag.dir != null) { cx.globalAlpha = .45; cx.strokeStyle = '#fff'; cx.lineWidth = 2 * DPR; cx.beginPath(); cx.arc(drag.x * DPR, drag.y * DPR, 40 * DPR, 0, 7); cx.stroke(); cx.fillStyle = '#fff'; cx.beginPath(); cx.arc((drag.x + D4[drag.dir][0] * 26) * DPR, (drag.y + D4[drag.dir][1] * 26) * DPR, 14 * DPR, 0, 7); cx.fill(); cx.globalAlpha = 1; }
+}
+
+// ============================================================ partita
+let MODO = 'menu', tasti = {}, drag = null, ultimo = 0, orologio = 0;
+function aggiornaHud() {
+  if (VELOCE || !G) return;
+  const L = R.L, v = G.vis; let s = ''; for (let k = 0; k < 3; k++) s += (v.sm & (1 << k)) ? '<b>★</b>' : '★';
+  $('#hStelle').innerHTML = s; $('#hLiv').textContent = nomeLiv(R.i);
+  const ch = $('#hChiave'); ch.hidden = v.mano < 0; if (v.mano >= 0) ch.innerHTML = '<i style="background:' + COLORI[R.col[v.mano]][0] + '"></i>chiave';
+  const pi = $('#hPiano'); pi.hidden = L.F < 2; if (L.F > 1) pi.textContent = 'Piano ' + (v.f + 1) + ' di ' + L.F;
+}
+const tempo = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+function salvaRipresa() { if (VELOCE || !DB.cur) return; io().ripresa = { i: R.i, n: G.n, mano: G.mano, kp: G.kp, sm: G.sm, t: G.t, cadute: G.cadute, porte: Array.from(R.porta).filter(e => e[1].aperta).map(e => e[0]) }; salva(); }
+function gioca(i, ripresa) {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (AC && AC.state === 'suspended') AC.resume();
+  carica(i);
+  if (ripresa && ripresa.i === i) {
+    G.n = ripresa.n; G.mano = ripresa.mano; G.kp = ripresa.kp; G.sm = ripresa.sm; G.t = ripresa.t; G.cadute = ripresa.cadute; G.intro = 0;
+    ripresa.porte.forEach(k => { const p = R.porta.get(k); if (p) { p.aperta = true; p.v = 1; } });
+    Object.assign(G.vis, { x: G.n[1], y: G.n[2], f: G.n[0], l: G.n[3], kp: G.kp.slice(), mano: G.mano, sm: G.sm });
+  } else { io().ripresa = null; salva(); }
+  MODO = 'gioco'; mostra(null); $('#hud').hidden = false; aggiornaHud(); tasti = {}; drag = null;
+  if (R.L.testo && !ripresa) dici(R.L.testo, true); else $('#fumetto').hidden = true;
+  tela.focus();
+}
+function finito() {
+  const L = R.L, st = [1, 2, 4].filter(b => G.sm & b).length, par = L.passi3 / 6.5 * 1.6 + 5 + L.buchi.length * 2.5;
+  const bonus = Math.max(0, Math.min(1000, Math.round(1000 * (1 - Math.max(0, G.t - par) / (par * 2))))), pt = Math.max(0, 500 + 500 * st + bonus - 100 * G.cadute);
+  const g = io(), prima = g.liv[R.i], record = !prima || pt > prima.p;
+  g.liv[R.i] = { s: Math.max(st, prima ? prima.s : 0), p: Math.max(pt, prima ? prima.p : 0), t: prima ? Math.min(prima.t, +G.t.toFixed(1)) : +G.t.toFixed(1) };
+  g.ripresa = null; salva(); MODO = 'fine';
+  const ult = R.i === LV.length - 1;
+  $('#fTitolo').textContent = ult ? 'Hai finito tutti i labirinti!' : 'Livello ' + nomeLiv(R.i) + ' superato';
+  $('#fStelle').innerHTML = [0, 1, 2].map(k => k < st ? '<b>★</b>' : '★').join('');
+  $('#fPunti').textContent = pt + ' punti';
+  $('#fConti').innerHTML = '<dt>Uscita trovata</dt><dd>500</dd><dt>Stelline (' + st + ' su 3)</dt><dd>' + 500 * st + '</dd><dt>Velocità (' + tempo(G.t) + ')</dt><dd>' + bonus + '</dd>' + (G.cadute ? '<dt>Cadute nei buchi neri (' + G.cadute + ')</dt><dd>−' + 100 * G.cadute + '</dd>' : '');
+  $('#fRecord').hidden = !(record && prima); $('#fAvanti').textContent = ult ? 'Classifica' : 'Avanti';
+  $('#hud').hidden = true; $('#fumetto').hidden = true; $('#sFine').hidden = false; $('#fAvanti').focus();
+}
+function direzione() {
+  if (drag && drag.dir != null) return drag.dir;
+  return tasti.r ? 0 : tasti.d ? 1 : tasti.l ? 2 : tasti.u ? 3 : null;
+}
+function quadro(ora) {
+  requestAnimationFrame(quadro);
+  const dt = Math.min(.05, (ora - ultimo) / 1000 || 0); ultimo = ora; orologio += dt;
+  if (!G || (MODO !== 'gioco' && MODO !== 'fine' && MODO !== 'pausa')) { if (cx) { cx.setTransform(1, 0, 0, 1, 0, 0); } return; }
+  if (MODO === 'gioco') {
+    const v = G.vis; if (v.urto > 0) v.urto -= dt;
+    if (G.coda.length) { const a = G.coda[0]; a.t += dt; const k = Math.min(1, a.t / a.dur); a.upd(k); if (k >= 1) { G.coda.shift(); a.fine && a.fine(); } }
+    else if (!G.fine) {
+      G.t += dt;
+      const b = R.buco.get(ckn(G.n));
+      if (b && G.n[3] === 0 && bucoAperto(b, G.t) >= 1) cade();
+      else { const d = direzione(); if (d != null) { const r = avanza(d);
+        if (r === 'no' || r === 'porta') { if (G.fresco) { v.urto = .18; v.dir = d; SUONI.urto(); if (r === 'porta') { SUONI.no(); dici('Qui serve la chiave ' + COLORI[G.manca][1] + '.'); } } }
+        else if (G.intro) { G.intro = 0; if (!G.cart) setTimeout(() => { if (G && !G.cart) $('#fumetto').hidden = true; }, 2500); }
+        G.fresco = false; } }
+      if (G.manca === 'g' && !G.detto) { G.detto = true; dici("L'uscita è chiusa: serve la chiave d'oro."); } if (G.manca !== 'g') G.detto = false; if (ckn(G.n) !== ckn(R.L.uscita)) G.manca = G.manca === 'g' ? null : G.manca;
+    }
+    if (Math.floor(G.t * 2) !== G.tHud) { G.tHud = Math.floor(G.t * 2); $('#hTempo').textContent = tempo(G.t); }
+  }
+  disegna(orologio, dt);
+}
+
+// ============================================================ schermate
+function mostra(id) { ['sNome', 'sHome', 'sLivelli', 'sClassifica', 'sPausa', 'sFine'].forEach(s => { $('#' + s).hidden = s !== id; }); if (id && id !== 'sPausa' && id !== 'sFine') { $('#hud').hidden = true; $('#fumetto').hidden = true; MODO = 'menu'; } }
+function casa() {
+  if (!DB.cur || !io()) return chiedeNome();
+  const g = io(), t = totali(g), pr = prossimo(g);
+  $('#ciao').textContent = 'Ciao, ' + DB.cur + '!';
+  $('#bContinua').textContent = g.ripresa ? 'Riprendi il livello ' + nomeLiv(g.ripresa.i) : t.n === 0 ? 'Gioca' : t.n >= LV.length ? 'Rigioca dal primo' : 'Continua: livello ' + nomeLiv(pr);
+  $('#bContinua').onclick = () => g.ripresa ? gioca(g.ripresa.i, g.ripresa) : gioca(t.n >= LV.length ? 0 : pr);
+  $('#totali').textContent = t.s + ' stelline su ' + LV.length * 3 + ' · ' + t.p + ' punti · ' + t.n + ' livelli su ' + LV.length;
+  mostra('sHome'); $('#bContinua').focus();
+}
+function chiedeNome() {
+  const nomi = Object.keys(DB.g), box = $('#elencoNomi'); box.innerHTML = '';
+  nomi.forEach(n => { const b = el('button'); b.type = 'button'; b.textContent = n; b.onclick = () => { DB.cur = n; salva(); casa(); }; box.appendChild(b); });
+  $('#giaQui').hidden = !nomi.length; $('#iNome').value = ''; mostra('sNome');
+}
+function livelli() {
+  const g = io(), box = $('#mondi'), pr = prossimo(g); box.innerHTML = '';
+  $('#totStelle').textContent = '★ ' + totali(g).s + ' / ' + LV.length * 3;
+  MONDI.forEach((m, mi) => {
+    const sez = el('div', 'mondo'), tot = LV.filter((l, i) => l.m === mi && g.liv[i]).reduce((a, l) => a, 0);
+    let st = 0; LV.forEach((l, i) => { if (l.m === mi && g.liv[i]) st += g.liv[i].s; });
+    const h = el('h3'); h.textContent = (mi + 1) + '. ' + m.nome; const sm = el('small'); sm.textContent = '★ ' + st + ' / 18'; h.appendChild(sm); sez.appendChild(h);
+    const p = el('p'); p.textContent = m.motto; sez.appendChild(p);
+    const gr = el('div', 'tessere');
+    LV.forEach((l, i) => { if (l.m !== mi) return; const ok = aperto_(g, i), b = el('button', 'tessera' + (ok ? '' : ' chiusa') + (i === pr && !g.liv[i] ? ' prossima' : ''));
+      b.type = 'button'; b.disabled = !ok; b.style.background = TEMI[mi].t; b.setAttribute('aria-label', 'Livello ' + nomeLiv(i) + (ok ? '' : ', chiuso'));
+      const fatte = g.liv[i] ? g.liv[i].s : 0; b.innerHTML = ok ? (l.n + 1) + '<small>' + [0, 1, 2].map(k => k < fatte ? '<b>★</b>' : '★').join('') + '</small>' : '🔒';
+      if (ok) b.onclick = () => gioca(i); gr.appendChild(b); });
+    sez.appendChild(gr); box.appendChild(sez);
+  });
+  mostra('sLivelli');
+}
+function classifica() {
+  const ol = $('#classifica'); ol.innerHTML = '';
+  Object.keys(DB.g).map(n => ({ n, t: totali(DB.g[n]) })).sort((a, b) => b.t.p - a.t.p || b.t.s - a.t.s).forEach((r, k) => {
+    const li = el('li', r.n === DB.cur ? 'io' : ''), a = el('span', 'pos'), b = el('span', 'nome'), c = el('span', 'st'), d = el('span', 'pt');
+    a.textContent = ['🥇', '🥈', '🥉'][k] || (k + 1) + '.'; b.textContent = r.n; c.textContent = '★ ' + r.t.s; d.textContent = r.t.p + ' pt'; li.append(a, b, c, d); ol.appendChild(li);
+  });
+  mostra('sClassifica');
+}
+function pausa(si) { if (si) { if (MODO !== 'gioco') return; MODO = 'pausa'; tasti = {}; drag = null; $('#pSuono').textContent = 'Suono: ' + (DB.suono ? 'sì' : 'no'); $('#sPausa').hidden = false; $('#pRiprendi').focus(); } else { $('#sPausa').hidden = true; MODO = 'gioco'; tela.focus(); } }
+const TM = { ArrowRight: 'r', ArrowDown: 'd', ArrowLeft: 'l', ArrowUp: 'u', d: 'r', s: 'd', a: 'l', w: 'u' };
+function lega() {
+  ['contextmenu', 'selectstart', 'dragstart', 'gesturestart', 'gesturechange', 'dblclick'].forEach(ev => document.addEventListener(ev, e => { if (e.target.id !== 'iNome') e.preventDefault(); }, { passive: false }));
+  window.addEventListener('resize', dimensiona);
+  window.addEventListener('keydown', e => {
+    if (e.target.id === 'iNome') return;
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (MODO === 'pausa') { if (k === 'Escape' || k === 'p') pausa(false); return; }
+    if (MODO !== 'gioco') return;
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && k !== 'Tab' && !/^F\d+$/.test(k)) e.preventDefault();
+    if (TM[k]) { if (!tasti[TM[k]]) G.fresco = true; tasti = {}; tasti[TM[k]] = true; }
+    else if (k === 'Escape' || k === 'p') pausa(true);
+    else if (k === 'm' && !$('#bMappa').hidden) { G.mappa = !G.mappa; }
+    else if (k === 'r') gioca(R.i);
+  });
+  window.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (TM[k]) tasti[TM[k]] = false; });
+  window.addEventListener('blur', () => { tasti = {}; drag = null; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && MODO === 'gioco') { salvaRipresa(); pausa(true); } });
+  // dito appoggiato e trascinato: si va da quella parte finché resta giù
+  tela.addEventListener('pointerdown', e => { if (MODO !== 'gioco') return; drag = { id: e.pointerId, x: e.offsetX, y: e.offsetY, dir: null }; try { tela.setPointerCapture(e.pointerId); } catch (er) {} });
+  tela.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y, l = Math.hypot(dx, dy); if (l < 14) return;
+    const d = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 0 : 2) : (dy > 0 ? 1 : 3); if (d !== drag.dir) { drag.dir = d; G.fresco = true; }
+    if (l > 56) { drag.x = e.offsetX - dx / l * 56; drag.y = e.offsetY - dy / l * 56; }     // il centro segue il dito: cambiare direzione è immediato
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => tela.addEventListener(ev, () => { drag = null; }));
+  $('#fNome').addEventListener('submit', e => { e.preventDefault(); const n = $('#iNome').value.trim().replace(/\s+/g, ' ').slice(0, 12); if (!n) { $('#iNome').focus(); return; } if (!DB.g[n]) DB.g[n] = { liv: {}, ripresa: null }; DB.cur = n; salva(); $('#iNome').blur(); casa(); });
+  document.querySelectorAll('.indietro').forEach(b => b.addEventListener('click', casa));
+  $('#bLivelli').onclick = livelli; $('#bClassifica').onclick = classifica; $('#bCambia').onclick = chiedeNome;
+  $('#bPausa').onclick = () => pausa(true); $('#bMappa').onclick = () => { G.mappa = !G.mappa; tela.focus(); };
+  $('#pRiprendi').onclick = () => pausa(false); $('#pRicomincia').onclick = () => gioca(R.i); $('#pLivelli').onclick = () => { salvaRipresa(); livelli(); };
+  $('#pCasa').onclick = () => { salvaRipresa(); casa(); };
+  $('#pSuono').onclick = () => { DB.suono = !DB.suono; salva(); $('#pSuono').textContent = 'Suono: ' + (DB.suono ? 'sì' : 'no'); };
+  $('#fAvanti').onclick = () => R.i === LV.length - 1 ? classifica() : gioca(R.i + 1);
+  $('#fRigioca').onclick = () => gioca(R.i); $('#fLivelli').onclick = livelli;
+}
+function collaudo() {
+  VELOCE = true; const out = []; let ok = 0;
+  LV.forEach((L, i) => { carica(i); let r = ''; for (const ch of L.sol) { r = avanza(LETT.indexOf(ch)); if (r === 'no' || r === 'porta') break; } const st = [1, 2, 4].filter(b => G.sm & b).length; if (r === 'fine' && st === 3) ok++; else out.push(nomeLiv(i) + ':' + r + '/' + st); });
+  document.title = 'COLLAUDO ' + ok + '/' + LV.length + (out.length ? ' ERRORI ' + out.join(' ') : ' tutti risolti con 3 stelline');
+}
+function avvio() {
+  if (location.hash === '#collaudo') { collaudo(); return; }
+  tela = $('#tela'); cx = tela.getContext('2d'); dimensiona(); lega();
+  window.__sbuca = { gioca: i => { if (!DB.cur) { DB.g.Prova = { liv: {}, ripresa: null }; DB.cur = 'Prova'; } gioca(i); }, stato: () => ({ n: G.n, sm: G.sm, mano: G.mano, t: G.t, modo: MODO }) };
+  casa(); requestAnimationFrame(quadro);
+}
+avvio();
+})();
+
+</script>
+<script src="../../piattaforma.js" data-gioco="sbuca" data-titolo="Sbuca!" data-nome="Sala Giochi" data-pausa="#bPausa" data-casa="destra"></script>
+</body>
+</html>
