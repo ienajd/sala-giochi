@@ -1,6 +1,6 @@
 /* Funzionamento senza connessione. monta.py scrive qui sotto la versione e l'elenco dei file a ogni montaggio:
    quando cambia la versione il telefono scarica tutto di nuovo e butta la copia vecchia. */
-const VERSIONE = '6e9fa983d8';
+const VERSIONE = '4c712cd02d';
 const FILE = ["./", "app.webmanifest", "catalogo.js", "giochi/arenzano-liberi-tutti/copertina.jpg", "giochi/arenzano-liberi-tutti/", "giochi/labirinti-spaziali/copertina.jpg", "giochi/labirinti-spaziali/icon-180.png", "giochi/labirinti-spaziali/icon-192.png", "giochi/labirinti-spaziali/icon-512.png", "giochi/labirinti-spaziali/", "giochi/labirinti-spaziali/manifest.json", "giochi/occhio-alla-lava/copertina.jpg", "giochi/occhio-alla-lava/", "giochi/ottava-taglia/copertina.jpg", "giochi/ottava-taglia/icona.png", "giochi/ottava-taglia/", "giochi/sbuca/copertina.jpg", "giochi/sbuca/icona.png", "giochi/sbuca/", "giochi/sbuca/manifest.json", "giochi/sette-taglie/copertina.jpg", "giochi/sette-taglie/icona.png", "giochi/sette-taglie/", "giochi/zuffa-in-cortile/copertina.jpg", "giochi/zuffa-in-cortile/", "icone/icona-180.png", "icone/icona-192.png", "icone/icona-512.png", "icone/icona.svg", "piattaforma.js", "stile.css"];
 const DEPOSITO = 'piattaforma-' + VERSIONE;
 
