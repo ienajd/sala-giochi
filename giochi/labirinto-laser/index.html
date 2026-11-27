@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Il Labirinto dei Laser</title>
+<meta name="description" content="Un labirinto disegnato a penna diventato videogioco: laser, portali, buchi neri e una leva da trovare.">
+<meta name="theme-color" content="#0b0f15">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Labirinto Laser">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icona.png"><link rel="icon" type="image/png" href="icona.png">
+<style>
+/* Il Labirinto dei Laser — il labirinto occupa tutto lo schermo; sopra, una sola riga di cruscotto. */
+:root{
+  --fondo:#0b0f15; --pannello:#161d27; --bordo:#2c3847; --testo:#e8eef5; --tenue:#93a1b3;
+  --rosso:#ff3b3b; --azzurro:#5cc8ff; --tasto:#ff7a2a; --tasto-scuro:#b9500f; --oro:#f2c230; --verde:#35d07f;
+  --car:ui-rounded,"SF Pro Rounded","Avenir Next","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%;overscroll-behavior:none}
+body{margin:0;background:var(--fondo);color:var(--testo);font-family:var(--car);font-size:17px;line-height:1.4;overflow:hidden}
+#app{position:relative;height:100%;overflow:hidden;background:var(--fondo)}
+#app,#app *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+h1,h2,p,ul,dl,dd{margin:0}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:3px solid var(--azzurro);outline-offset:2px}
+#tela{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
+
+/* cruscotto: una riga sola */
+#hud{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;pointer-events:none;
+  padding:max(8px,env(safe-area-inset-top,0px)) max(10px,env(safe-area-inset-right,0px)) 0 max(10px,env(safe-area-inset-left,0px))}
+#hud > *{pointer-events:auto}
+.chip{background:rgba(16,22,31,.86);border:1px solid var(--bordo);border-radius:999px;padding:6px 12px;font-weight:700;font-size:14.5px;font-variant-numeric:tabular-nums;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#hLaser{display:inline-flex;align-items:center;gap:7px}
+#hLaser i{width:10px;height:10px;border-radius:50%;background:var(--rosso);box-shadow:0 0 8px var(--rosso)}
+#hLaser.spenti i{background:var(--azzurro);box-shadow:0 0 8px var(--azzurro)}
+#bMappa{margin-left:auto}
+#bPausa,#bMappa{background:rgba(16,22,31,.86);border:1px solid var(--bordo);border-radius:12px;height:38px;min-width:42px;padding:0 12px;font-weight:800;font-size:15px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#bPausa:active,#bMappa:active{transform:translateY(1px);background:#222c39}
+#bMappa.attiva{background:var(--tasto);border-color:var(--tasto);color:#1a0d02}
+@media (max-width:400px){#hLaser b{display:none}#hLaser{padding:10px}}
+#fumetto{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(8px,env(safe-area-inset-top,0px)) + 50px);width:max-content;max-width:min(520px,calc(100% - 24px));
+  background:rgba(16,22,31,.92);border:1px solid var(--bordo);border-radius:14px;padding:9px 15px;font-weight:700;font-size:15.5px;text-align:center;pointer-events:none}
+#fumetto.sotto{top:auto;bottom:calc(max(14px,env(safe-area-inset-bottom,0px)) + 14px)}
+#fumetto.entra{animation:entra .25s ease-out}
+@keyframes entra{from{opacity:0;transform:translateX(-50%) translateY(-8px)}to{opacity:1;transform:translateX(-50%)}}
+
+/* schermate */
+.schermo,.velo{position:absolute;inset:0;display:flex;overflow:auto;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.schermo{background:radial-gradient(circle at 50% 18%,rgba(255,59,59,.16),transparent 55%),rgba(7,10,15,.78)}
+.velo{background:rgba(5,8,12,.74)}
+.carta{margin:auto;width:100%;max-width:430px;background:var(--pannello);border:1px solid var(--bordo);border-radius:22px;padding:24px 22px;display:flex;flex-direction:column;gap:13px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.carta.larga{max-width:560px;text-align:left}
+.carta.stretta{max-width:360px}
+.occhiello{font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:12.5px;color:var(--azzurro)}
+.logo{font-size:clamp(34px,10vw,50px);line-height:1.02;font-weight:900;letter-spacing:-.01em;text-wrap:balance}
+.logo span{color:var(--rosso);text-shadow:0 0 22px rgba(255,59,59,.75)}
+h2{font-size:24px;font-weight:900;line-height:1.15;text-wrap:balance}
+.motto{color:var(--tenue);font-weight:600}
+.piccolo{color:var(--tenue);font-size:14.5px;font-weight:600}
+button.grande{background:var(--tasto);color:#1a0d02;border:0;border-radius:16px;padding:14px 18px;font-size:20px;font-weight:900;box-shadow:0 5px 0 var(--tasto-scuro);width:100%}
+button.grande:active{transform:translateY(3px);box-shadow:0 2px 0 var(--tasto-scuro)}
+.carta > button:not(.grande){background:#1e2733;border:1px solid var(--bordo);border-radius:13px;padding:11px 14px;font-weight:700}
+.carta > button:not(.grande):active{background:#27323f}
+.legenda{list-style:none;padding:0;display:flex;flex-direction:column;gap:10px}
+.legenda li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;align-items:center}
+.legenda canvas{width:44px;height:44px;border-radius:10px;background:#232c37;border:1px solid var(--bordo)}
+.legenda b{display:block;font-weight:800}
+.legenda span{color:var(--tenue);font-size:14.5px;line-height:1.3;display:block}
+#fTempo{font-size:52px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1;color:var(--verde);text-shadow:0 0 24px rgba(53,208,127,.5)}
+#fConti{display:grid;grid-template-columns:1fr auto;gap:4px 14px;text-align:left;font-weight:600;color:var(--tenue);font-size:15px}
+#fConti dd{text-align:right;font-variant-numeric:tabular-nums;color:var(--testo)}
+.record{background:var(--oro);color:#241a00;border-radius:999px;padding:4px 14px;font-weight:900;align-self:center}
+@media (prefers-reduced-motion:reduce){#fumetto.entra{animation:none}}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="tela" tabindex="0" aria-label="Il labirinto"></canvas>
+
+  <div id="hud" hidden>
+    <button id="bPausa" type="button" aria-label="Pausa">☰</button>
+    <span id="hTempo" class="chip">0:00</span>
+    <span id="hLaser" class="chip"><i></i><b>Laser accesi</b></span>
+    <span id="hCadute" class="chip" hidden></span>
+    <button id="bMappa" type="button">Mappa</button>
+  </div>
+  <div id="fumetto" hidden></div>
+
+  <section id="sHome" class="schermo" hidden>
+    <div class="carta">
+      <p class="occhiello">Dal foglio a quadretti al videogioco</p>
+      <h1 class="logo">Il Labirinto<br>dei <span>Laser</span></h1>
+      <p class="motto">Parti dal VIA e arriva alla stanza con scritto FINE.</p>
+      <button id="bGioca" type="button" class="grande">Gioca</button>
+      <button id="bNuova" type="button" hidden>Ricomincia da capo</button>
+      <button id="bRegole" type="button">Come si gioca</button>
+      <p id="record" class="piccolo"></p>
+    </div>
+  </section>
+
+  <section id="sRegole" class="velo" hidden>
+    <div class="carta larga">
+      <h2>Come si gioca</h2>
+      <ul class="legenda">
+        <li><canvas data-icona="via" width="88" height="88"></canvas><div><b>VIA</b><span>Si parte da qui. Chi cade in un buco nero ci ritorna.</span></div></li>
+        <li><canvas data-icona="leva" width="88" height="88"></canvas><div><b>Leva</b><span>Spegne i laser rossi. Basta toccarla.</span></div></li>
+        <li><canvas data-icona="laser" width="88" height="88"></canvas><div><b>Laser</b><span>Rosso è acceso e non lascia passare. Azzurro è spento.</span></div></li>
+        <li><canvas data-icona="portale" width="88" height="88"></canvas><div><b>Portali</b><span>Ti portano all'altro portale dello stesso colore. A volte in un posto dove a piedi non si arriva, a volte in un vicolo cieco.</span></div></li>
+        <li><canvas data-icona="frecce" width="88" height="88"></canvas><div><b>Frecce</b><span>Senso unico: si passa solo nel verso delle frecce.</span></div></li>
+        <li><canvas data-icona="buco" width="88" height="88"></canvas><div><b>Buchi neri</b><span>Se ci finisci sopra torni al VIA.</span></div></li>
+        <li><canvas data-icona="fine" width="88" height="88"></canvas><div><b>FINE</b><span>Entra nella stanza con scritto FINE e hai vinto.</span></div></li>
+      </ul>
+      <p class="piccolo">Sul telefono: appoggia un dito e trascinalo dove vuoi andare. Al computer: le frecce. «Mappa» fa vedere tutto il labirinto.</p>
+      <button id="rChiudi" type="button" class="grande">Ho capito</button>
+    </div>
+  </section>
+
+  <section id="sPausa" class="velo" hidden>
+    <div class="carta stretta">
+      <h2>Pausa</h2>
+      <button id="pRiprendi" type="button" class="grande">Riprendi</button>
+      <button id="pRicomincia" type="button">Ricomincia da capo</button>
+      <button id="pRegole" type="button">Come si gioca</button>
+      <button id="pSuono" type="button">Suono: sì</button>
+      <button id="pCasa" type="button">Schermata iniziale</button>
+    </div>
+  </section>
+
+  <section id="sFine" class="velo" hidden>
+    <div class="carta stretta">
+      <p class="occhiello">Sei arrivato alla FINE</p>
+      <h2>Labirinto risolto!</h2>
+      <div id="fTempo"></div>
+      <dl id="fConti"></dl>
+      <p id="fRecord" class="record" hidden>Nuovo record!</p>
+      <button id="fRigioca" type="button" class="grande">Gioca ancora</button>
+      <button id="fCasa" type="button">Schermata iniziale</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* Il Labirinto dei Laser — un labirinto disegnato a penna, ricalcato a righe dritte e reso giocabile.
+   Tutto su una tela 2D (niente WebGL): pavimento a pannelli, muri in rilievo con ombra, laser, portali, buchi neri.
+   I dati del labirinto (muri e oggetti) arrivano da labirinto.json, montato qui sotto da monta.py. */
+(function () {
+  'use strict';
+  var D = {"W":1534,"H":1464,"muri":[[264,0,264,910,0],[292,0,292,856,0],[352,1336,1121,1336,0],[150,68,150,759,0],[264,902,840,902,0],[311,902,311,1464,0],[690,476,1194,476,0],[675,902,675,1417,0],[1248,398,1248,890,1],[1194,476,1194,960,0],[292,856,733,856,0],[1153,34,1153,478,0],[352,902,352,1336,0],[1121,1030,1121,1464,1],[339,342,339,759,1],[1284,444,1284,858,0],[1186,1030,1186,1433,0],[626,902,626,1296,0],[1029,1030,1029,1421,0],[1508,508,1508,858,0],[1248,934,1248,1288,0],[761,46,761,396,0],[840,1030,1186,1030,0],[675,1117,1029,1117,0],[339,816,695,816,0],[632,252,632,591,1],[1186,1433,1534,1433,0],[134,1068,134,1403,0],[192,1068,192,1403,0],[1302,1039,1302,1382,0],[586,326,586,656,1],[1380,72,1380,398,0],[415,982,415,1296,0],[339,759,644,759,0],[690,156,690,476,0],[1153,72,1462,72,0],[554,404,554,697,1],[1069,528,1069,847,0],[0,1359,311,1359,0],[0,1403,311,1403,0],[412,200,690,200,0],[922,960,1194,960,0],[412,32,690,32,0],[761,46,1026,46,0],[1340,508,1340,784,0],[398,1396,675,1396,1],[872,1181,872,1464,0],[578,982,578,1240,0],[1520,944,1520,1205,1],[1422,944,1422,1205,0],[0,1068,270,1068,0],[1002,476,1002,733,1],[840,779,840,1030,0],[1365,934,1365,1184,0],[0,910,264,910,0],[373,450,373,697,0],[250,1068,250,1317,0],[1338,108,1338,344,0],[446,1006,446,1240,0],[1218,108,1218,344,0],[1284,858,1508,858,0],[0,1142,250,1142,0],[0,1234,250,1234,0],[388,733,644,733,0],[1418,558,1418,788,0],[761,396,991,396,0],[521,450,521,679,0],[1284,444,1498,444,0],[39,986,270,986,0],[1134,691,1134,916,0],[339,404,554,404,0],[1104,264,1104,476,0],[810,214,1026,214,0],[415,1296,626,1296,0],[1077,0,1077,221,0],[554,1006,554,1206,0],[427,956,626,956,0],[922,758,922,960,1],[1153,344,1338,344,0],[73,759,264,759,0],[1196,398,1380,398,0],[422,500,422,679,0],[942,1162,942,1336,0],[1026,46,1026,214,0],[810,128,981,128,0],[415,982,578,982,0],[1340,508,1508,508,0],[476,1049,476,1206,0],[724,716,878,716,0],[810,340,962,340,1],[690,779,840,779,0],[494,500,494,650,0],[1442,1287,1442,1433,0],[436,326,586,326,0],[977,916,1134,916,0],[373,450,521,450,0],[1396,1242,1396,1382,0],[415,1240,578,1240,0],[495,252,632,252,0],[798,779,798,902,0],[720,1143,720,1286,0],[991,264,991,396,0],[810,214,810,340,0],[516,1038,516,1178,0],[1380,358,1498,358,0],[830,1162,830,1286,0],[436,200,436,326,0],[1380,122,1498,122,0],[690,656,690,779,1],[1396,1242,1534,1242,0],[457,520,457,650,0],[1218,108,1338,108,0],[724,591,724,716,0],[1248,934,1365,934,1],[1380,226,1501,226,0],[991,264,1104,264,1],[757,1364,872,1364,0],[776,1117,776,1228,0],[830,1162,942,1162,0],[446,1006,554,1006,0],[720,1286,830,1286,0],[1416,182,1534,182,0],[586,656,690,656,0],[422,679,521,679,0],[1422,944,1520,944,0],[962,240,962,340,0],[1420,288,1534,288,0],[554,697,644,697,0],[1422,1205,1520,1205,0],[1302,1382,1396,1382,0],[270,972,270,1068,0],[632,591,724,591,0],[844,476,844,567,0],[1029,808,1029,916,0],[914,592,914,694,0],[104,986,104,1068,0],[476,1206,554,1206,0],[422,500,494,500,0],[840,302,916,302,0],[1186,1352,1258,1352,0],[76,162,150,162,0],[840,252,916,252,0],[192,910,192,986,0],[74,264,150,264,0],[983,762,983,848,0],[79,628,150,628,0],[150,516,222,516,0],[82,557,150,557,0],[150,104,220,104,0],[644,697,644,759,0],[87,367,150,367,0],[250,1317,311,1317,0],[87,474,150,474,0],[690,0,690,77,1],[533,1240,533,1296,1],[352,1162,415,1162,0],[933,66,933,128,0],[88,691,150,691,0],[1268,991,1332,991,0],[150,214,209,214,0],[150,423,211,423,0],[150,602,204,602,0],[878,758,922,758,0],[150,656,203,656,0],[983,848,1029,848,0],[150,320,207,320,0],[1418,788,1469,788,0],[495,200,495,252,0],[840,252,840,302,0],[916,252,916,302,0],[1371,640,1418,640,0],[1418,734,1467,734,0],[726,1403,726,1464,0],[869,79,869,128,0],[578,1051,626,1051,0],[1418,610,1463,610,0],[1376,683,1418,683,0],[1302,1252,1348,1252,0],[878,716,878,758,0],[1338,241,1380,241,0],[1302,1364,1345,1364,0],[953,128,953,174,0],[1379,558,1418,558,0],[457,650,494,650,0],[1361,1304,1396,1304,0],[810,89,810,128,0],[806,588,806,634,0],[826,128,826,157,0],[892,128,892,157,0],[1442,1287,1466,1287,0],[1510,1287,1534,1287,0],[1258,1352,1258,1371,0],[1258,1415,1258,1433,0],[0,844,104,844,0],[160,844,264,844,0],[412,32,412,77,0],[412,156,412,200,0],[1194,890,1378,890,0],[1422,890,1534,890,0],[695,478,1069,847,1]],"decor":[[1245,130,1311,185],[1250,185,1315,237],[1258,250,1308,287]],"arco":[0,1464,88],"porte":[{"t":"via","o":"h","c":1287,"a":1466,"b":1510},{"t":"leva","o":"v","c":1258,"a":1371,"b":1415},{"t":"fine","o":"h","c":844,"a":104,"b":160},{"t":"frecce","o":"v","c":412,"a":77,"b":156},{"t":"passaggio","o":"h","c":890,"a":1378,"b":1422}],"via":{"p":[1488,1352],"box":[1442,1287,1534,1434]},"fine":{"box":[0,844,264,910]},"leva":{"p":[1221,1396],"box":[1187,1352,1258,1434]},"buchi":[[364,117],[802,512]],"portali":[{"c":"oro","a":[1398,45],"b":[1129,594]},{"c":"verde","a":[1056,319],"b":[227,557]}],"laser":[{"r":1,"p":[352,1336,352,1464]},{"r":1,"p":[1463,0,1463,73]},{"r":1,"p":[1501,182,1501,225]},{"r":0,"p":[1078,221,1153,221]}],"frecce":{"box":[412,32,690,200]},"vetro":[1218,109,1339,344]};
+  var W = D.W, H = D.H;
+  var R = 9.5;            // raggio della pallina
+  var SP = [6, 11];       // spessore dei muri: sottile, grosso
+  var ALT = 6;            // altezza apparente dei muri
+  var VEL = 178;          // punti al secondo
+  var $ = function (s) { return document.querySelector(s); };
+  var tela = $('#tela'), ctx = tela.getContext('2d');
+
+  // ---------- salvataggio ----------
+  var CHIAVE = 'labirinto-laser-v1';
+  var DB = { suono: true, record: null, partita: null };
+  try { var letto = JSON.parse(localStorage.getItem(CHIAVE)); if (letto && typeof letto === 'object') for (var k in letto) DB[k] = letto[k]; } catch (e) {}
+  function salva() { try { localStorage.setItem(CHIAVE, JSON.stringify(DB)); } catch (e) {} }
+
+  // ---------- geometria ----------
+  var SEG = [];
+  D.muri.forEach(function (m) { SEG.push({ x1: m[0], y1: m[1], x2: m[2], y2: m[3], r: SP[m[4]] / 2, l: -1 }); });
+  [[0, 0, W, 0], [W, 0, W, H], [W, H, 0, H], [0, H, 0, 0]].forEach(function (m) { SEG.push({ x1: m[0], y1: m[1], x2: m[2], y2: m[3], r: 3, l: -1 }); });
+  D.laser.forEach(function (L, i) { SEG.push({ x1: L.p[0], y1: L.p[1], x2: L.p[2], y2: L.p[3], r: 2.5, l: i }); });
+  var CELLA = 64, GW = Math.ceil(W / CELLA) + 1, GH = Math.ceil(H / CELLA) + 1, GR = [];
+  SEG.forEach(function (s, i) {
+    var m = s.r + R + 4;
+    var x0 = Math.max(0, Math.floor((Math.min(s.x1, s.x2) - m) / CELLA)), x1 = Math.min(GW - 1, Math.floor((Math.max(s.x1, s.x2) + m) / CELLA));
+    var y0 = Math.max(0, Math.floor((Math.min(s.y1, s.y2) - m) / CELLA)), y1 = Math.min(GH - 1, Math.floor((Math.max(s.y1, s.y2) + m) / CELLA));
+    for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) (GR[y * GW + x] = GR[y * GW + x] || []).push(i);
+  });
+  var PORT = [];   // ogni bocca di portale: {x,y,col,altra}
+  D.portali.forEach(function (p) {
+    var a = { x: p.a[0], y: p.a[1], c: p.c }, b = { x: p.b[0], y: p.b[1], c: p.c };
+    a.altra = b; b.altra = a; PORT.push(a, b);
+  });
+  var COL = { oro: ['#ffd24a', '#f2a900', '255,196,40'], verde: ['#5ff0dc', '#0fae9c', '40,220,200'] };
+
+  // ---------- stato ----------
+  var S, ui = 'home', mappa = false, tempoPrec = 0, orologio = 0;
+  var cam = { x: W / 2, y: H / 2, s: 0.3 };
+  var vw = 0, vh = 0, dpr = 1, scMappa = 0.3, scGioco = 1;
+  var tasti = {}, joy = null, msgT = {};
+  function nuovo(da) {
+    S = { x: D.via.p[0], y: D.via.p[1], vx: 0, vy: 0, dir: -Math.PI / 2, rot: 0, leva: false, levaA: 0, laserA: 1, t: 0, partito: false, cadute: 0,
+      modo: 'gioco', an: 0, da: null, a: null, disarmato: null, nasce: 1, scossa: 0, visti: {}, auto: null, dentro: false, trappola: 0 };
+    if (da) { S.x = da.x; S.y = da.y; S.leva = !!da.leva; S.t = da.t || 0; S.cadute = da.cadute || 0; S.partito = S.t > 0; if (S.leva) { S.levaA = 1; S.laserA = 0; } S.nasce = 0; }
+  }
+  nuovo(null);
+  function laserAcceso(i) { return D.laser[i].r && !S.leva; }
+
+  // ---------- suoni ----------
+  var AC = null;
+  function nota(tipo, f0, f1, dur, vol, quando) {
+    var t = AC.currentTime + (quando || 0), o = AC.createOscillator(), g = AC.createGain();
+    o.type = tipo; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function suona(q) {
+    if (!DB.suono) return;
+    try {
+      AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+      if (AC.state === 'suspended') AC.resume();
+      if (q === 'leva') { nota('square', 160, 90, 0.08, 0.2); nota('sawtooth', 620, 70, 0.6, 0.12, 0.06); }
+      else if (q === 'portale') { nota('sine', 280, 1300, 0.32, 0.2); nota('sine', 1300, 500, 0.3, 0.14, 0.3); }
+      else if (q === 'buco') nota('sine', 460, 36, 0.8, 0.26);
+      else if (q === 'laser') nota('square', 96, 80, 0.14, 0.13);
+      else if (q === 'frecce') nota('triangle', 240, 180, 0.1, 0.16);
+      else if (q === 'vinto') [523, 659, 784, 1047].forEach(function (f, i) { nota('triangle', f, f, 0.26, 0.2, i * 0.13); });
+    } catch (e) {}
+  }
+
+  // ---------- messaggi ----------
+  var fum = $('#fumetto'), fumT = 0, fumGiu = false;
+  function dici(testo, sec) { fum.textContent = testo; fum.hidden = false; fum.classList.remove('entra'); void fum.offsetWidth; fum.classList.add('entra'); fumT = sec || 3.2; }
+  function diciOgni(chiave, testo, pausa) { var ora = orologio; if (msgT[chiave] && ora - msgT[chiave] < (pausa || 3)) return false; msgT[chiave] = ora; dici(testo); return true; }
+
+  // ---------- movimento ----------
+  function urta() {
+    var colpito = -1;
+    for (var giro = 0; giro < 3; giro++) {
+      var lista = GR[Math.floor(S.y / CELLA) * GW + Math.floor(S.x / CELLA)];
+      if (!lista) return colpito;
+      for (var n = 0; n < lista.length; n++) {
+        var s = SEG[lista[n]];
+        if (s.l >= 0 && !laserAcceso(s.l)) continue;
+        var ax = s.x2 - s.x1, ay = s.y2 - s.y1, t = ((S.x - s.x1) * ax + (S.y - s.y1) * ay) / (ax * ax + ay * ay);
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        var dx = S.x - (s.x1 + t * ax), dy = S.y - (s.y1 + t * ay), d2 = dx * dx + dy * dy, m = R + s.r;
+        if (d2 < m * m) {
+          var d = Math.sqrt(d2);
+          if (d < 1e-4) { var L = Math.sqrt(ax * ax + ay * ay); dx = -ay / L; dy = ax / L; d = 0; } else { dx /= d; dy /= d; }
+          S.x += dx * (m - d); S.y += dy * (m - d);
+          if (s.l >= 0) colpito = s.l;
+        }
+      }
+    }
+    return colpito;
+  }
+  function comandi() {
+    var x = 0, y = 0;
+    if (S.auto) {
+      var p = S.auto.p, i = S.auto.i;
+      while (i < p.length && Math.hypot(p[i][0] - S.x, p[i][1] - S.y) < 5) i++;
+      S.auto.i = i;
+      if (i >= p.length) return [0, 0];
+      var ax = p[i][0] - S.x, ay = p[i][1] - S.y, al = Math.hypot(ax, ay);
+      if (al > 70) {      // dopo un portale la pallina è già dall'altra parte: riprende dal primo punto vicino
+        for (var j = i; j < Math.min(p.length, i + 40); j++) if (Math.hypot(p[j][0] - S.x, p[j][1] - S.y) < 20) { S.auto.i = i = j; break; }
+        ax = p[i][0] - S.x; ay = p[i][1] - S.y; al = Math.hypot(ax, ay) || 1;
+      }
+      return [ax / al, ay / al];
+    }
+    if (tasti.ArrowLeft || tasti.KeyA) x -= 1;
+    if (tasti.ArrowRight || tasti.KeyD) x += 1;
+    if (tasti.ArrowUp || tasti.KeyW) y -= 1;
+    if (tasti.ArrowDown || tasti.KeyS) y += 1;
+    if (joy) {
+      var dx = joy.x - joy.ox, dy = joy.y - joy.oy, l = Math.hypot(dx, dy);
+      if (l > 6) { var f = Math.min(1, (l - 6) / 36); x += dx / l * f; y += dy / l * f; }
+    }
+    var n = Math.hypot(x, y);
+    if (n > 1) { x /= n; y /= n; }
+    return [x, y];
+  }
+  function passo(dt) {
+    orologio += dt;
+    if (fumT > 0) { fumT -= dt; if (fumT <= 0) fum.hidden = true; }
+    S.levaA += ((S.leva ? 1 : 0) - S.levaA) * Math.min(1, dt * 9);
+    S.laserA += ((S.leva ? 0 : 1) - S.laserA) * Math.min(1, dt * 3.2);
+    if (S.nasce > 0) S.nasce = Math.max(0, S.nasce - dt * 2.6);
+    if (S.scossa > 0) S.scossa = Math.max(0, S.scossa - dt * 3);
+    if (S.modo === 'caduta') {
+      S.an += dt / 0.85;
+      var b = S.da; S.x += (b[0] - S.x) * Math.min(1, dt * 7); S.y += (b[1] - S.y) * Math.min(1, dt * 7); S.dir += dt * 14;
+      if (S.an >= 1) { S.x = D.via.p[0]; S.y = D.via.p[1]; S.vx = S.vy = 0; S.modo = 'gioco'; S.nasce = 1; S.dir = -Math.PI / 2; }
+      return;
+    }
+    if (S.modo === 'tele') {
+      var prima = S.an; S.an += dt / 0.6;
+      if (prima < 0.5 && S.an >= 0.5) { S.x = S.a.x; S.y = S.a.y; S.disarmato = S.a; }
+      if (S.an >= 1) { S.modo = 'gioco'; S.vx = S.vy = 0; }
+      return;
+    }
+    if (S.modo !== 'gioco') return;
+    var c = comandi(), ix = c[0], iy = c[1];
+    if (!S.partito && (ix || iy)) S.partito = true;
+    if (S.partito) S.t += dt;
+    var kk = Math.min(1, dt * 15);
+    S.vx += (ix * VEL - S.vx) * kk; S.vy += (iy * VEL - S.vy) * kk;
+    var px = S.vx, py = S.vy, n, d;
+    for (n = 0; n < D.buchi.length; n++) {            // i buchi neri tirano un po' chi passa vicino
+      var bx = D.buchi[n][0] - S.x, by = D.buchi[n][1] - S.y; d = Math.hypot(bx, by);
+      if (d < 38 && d > 0.01) { var f = (1 - d / 38) * 62; px += bx / d * f; py += by / d * f; }
+    }
+    var lung = Math.hypot(px, py) * dt, passi = Math.max(1, Math.ceil(lung / 3)), F = D.frecce.box, laser = -1, senso = false;
+    for (n = 0; n < passi; n++) {
+      var dx = px * dt / passi, dy = py * dt / passi;
+      if (dx > 0 && S.y > F[1] && S.y < F[3] && S.x < F[2]) {       // frecce: mai verso destra
+        var lim = F[0] - 2;
+        if (S.x >= lim) { dx = 0; senso = true; } else if (S.x + dx > lim) { dx = lim - S.x; senso = true; }
+      }
+      S.x += dx; S.y += dy;
+      var u = urta(); if (u >= 0) laser = u;
+    }
+    var mossa = Math.hypot(S.vx, S.vy);
+    if (mossa > 12) { var da = Math.atan2(S.vy, S.vx) - S.dir; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI; S.dir += da * Math.min(1, dt * 12); S.rot += mossa * dt / R; }
+    if (laser >= 0 && S.scossa <= 0) { S.scossa = 1; suona('laser'); diciOgni('laser', 'Laser acceso: di qui non si passa. Cerca la leva.', 4); }
+    if (senso && ix > 0.3 && diciOgni('frecce', 'Senso unico: si passa solo nel verso delle frecce.', 4)) suona('frecce');
+    if (S.x > F[0] && S.x < F[2] && S.y > F[1] && S.y < F[3]) { S.dentro = true; if (!S.visti.frecce) { S.visti.frecce = 1; dici('Senso unico: da qui non si torna indietro.'); } }
+    else if (S.dentro) { S.dentro = false; if (S.x < F[0]) S.trappola = 0.001; }
+    if (S.trappola > 0) { S.trappola += dt; if (S.trappola > 22 && !S.visti.trappola) { S.visti.trappola = 1; dici('Di qui a piedi non si esce. Il buco nero riporta al VIA.', 6); } }
+    // leva
+    if (!S.leva && Math.hypot(S.x - D.leva.p[0], S.y - D.leva.p[1]) < 18) { S.leva = true; suona('leva'); dici('Leva abbassata: i laser rossi si spengono.', 4); aggiornaHud(); salvaPartita(); }
+    // buchi neri
+    for (n = 0; n < D.buchi.length; n++) if (Math.hypot(S.x - D.buchi[n][0], S.y - D.buchi[n][1]) < 12) {
+      S.modo = 'caduta'; S.an = 0; S.da = D.buchi[n]; S.cadute++; S.trappola = 0; suona('buco'); dici('Buco nero! Si riparte dal VIA.', 3.5); aggiornaHud(); return;
+    }
+    // portali
+    if (S.disarmato && Math.hypot(S.x - S.disarmato.x, S.y - S.disarmato.y) > 24) S.disarmato = null;
+    for (n = 0; n < PORT.length; n++) {
+      var p = PORT[n];
+      if (p !== S.disarmato && Math.hypot(S.x - p.x, S.y - p.y) < 10) {
+        S.modo = 'tele'; S.an = 0; S.da = p; S.a = p.altra; suona('portale');
+        if (!S.visti[p.c]) { S.visti[p.c] = 1; dici('Portale: ti porta all\'altro dello stesso colore.', 3.5); }
+        return;
+      }
+    }
+    // fine
+    var fb = D.fine.box;
+    if (S.x > fb[0] + 2 && S.x < fb[2] - 2 && S.y > fb[1] + 2 && S.y < fb[3] - 2) vinto();
+  }
+
+  // ---------- disegno: materiali ----------
+  var motivo = null;
+  function faiPavimento() {
+    var q = 256, c = document.createElement('canvas'); c.width = c.height = q; var g = c.getContext('2d'), seme = 7;
+    function caso() { seme = (seme * 16807) % 2147483647; return seme / 2147483647; }
+    var toni = ['#2b343f', '#2e3742', '#29323c', '#2c3540'];
+    for (var j = 0; j < 2; j++) for (var i = 0; i < 2; i++) {
+      var x = i * 128, y = j * 128;
+      g.fillStyle = toni[j * 2 + i]; g.fillRect(x, y, 128, 128);
+      var gr = g.createLinearGradient(x, y, x + 128, y + 128); gr.addColorStop(0, 'rgba(255,255,255,.045)'); gr.addColorStop(1, 'rgba(0,0,0,.07)');
+      g.fillStyle = gr; g.fillRect(x, y, 128, 128);
+    }
+    for (var n = 0; n < 2600; n++) { g.fillStyle = caso() < 0.5 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.06)'; g.fillRect(caso() * q, caso() * q, 1 + caso() * 2, 1 + caso() * 2); }
+    for (n = 0; n < 26; n++) {       // graffi
+      var sx = caso() * q, sy = caso() * q, a = caso() * 6.28, l = 8 + caso() * 30;
+      g.strokeStyle = 'rgba(255,255,255,' + (0.02 + caso() * 0.04) + ')'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + Math.cos(a) * l, sy + Math.sin(a) * l); g.stroke();
+    }
+    for (var s = 0; s < 2; s++) {    // giunti tra i pannelli
+      var p = s * 128;
+      g.fillStyle = '#171d24'; g.fillRect(p, 0, 3, q); g.fillRect(0, p, q, 3);
+      g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(p + 3, 0, 1.5, q); g.fillRect(0, p + 3, q, 1.5);
+    }
+    for (j = 0; j < 2; j++) for (i = 0; i < 2; i++) [[14, 14], [116, 14], [14, 116], [116, 116]].forEach(function (b) {     // bulloni
+      var bx = i * 128 + b[0], by = j * 128 + b[1];
+      g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(bx + 0.8, by + 1, 3.2, 0, 7); g.fill();
+      g.fillStyle = '#4a5663'; g.beginPath(); g.arc(bx, by, 2.8, 0, 7); g.fill();
+      g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.arc(bx - 0.8, by - 0.8, 1.1, 0, 7); g.fill();
+    });
+    motivo = ctx.createPattern(c, 'repeat');
+    try { motivo.setTransform(new DOMMatrix().scale(0.5)); } catch (e) {}
+  }
+  var pSott = new Path2D(), pGros = new Path2D(), pCorn = new Path2D();
+  D.muri.forEach(function (m) { var p = m[4] ? pGros : pSott; p.moveTo(m[0], m[1]); p.lineTo(m[2], m[3]); });
+  pSott.moveTo(D.arco[0], D.arco[1] - D.arco[2]); pSott.arc(D.arco[0], D.arco[1], D.arco[2], -Math.PI / 2, 0);
+  pCorn.rect(-9, -9, W + 18, H + 18);
+  var CORN = 24;
+  function tratti(colore, piu) {
+    ctx.strokeStyle = colore;
+    ctx.lineWidth = SP[0] + piu; ctx.stroke(pSott);
+    ctx.lineWidth = SP[1] + piu; ctx.stroke(pGros);
+    ctx.lineWidth = CORN + piu; ctx.stroke(pCorn);
+  }
+  function ombreMuri() {
+    ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
+    ctx.save(); ctx.translate(6, 9); tratti('rgba(0,0,0,.16)', 5); ctx.restore();
+    ctx.save(); ctx.translate(4, 6); tratti('rgba(0,0,0,.22)', 2); ctx.restore();
+    ctx.save(); ctx.translate(2, 3); tratti('rgba(0,0,0,.28)', 0); ctx.restore();
+  }
+  function muri() {
+    ctx.lineCap = 'square'; ctx.lineJoin = 'miter';
+    for (var k = 0; k < ALT; k += 1.5) { ctx.save(); ctx.translate(0, -k); tratti(k < 1.5 ? '#1c232b' : '#3d4854', 0); ctx.restore(); }
+    ctx.save(); ctx.translate(0, -ALT);
+    tratti('#232b34', 1.2); tratti('#aab5c0', 0); tratti('#d5dde5', -3);
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.save(); ctx.translate(-0.8, -0.8); ctx.stroke(pSott); ctx.stroke(pGros); ctx.restore();
+    ctx.restore();
+  }
+
+  // ---------- disegno: oggetti ----------
+  function alone(x, y, r, rgb, a) {
+    var g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, 'rgba(' + rgb + ',' + a + ')'); g.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  }
+  function portale(c, x, y, col, t, scala) {
+    var C = COL[col];
+    c.save(); c.translate(x, y); c.scale(scala || 1, scala || 1);
+    var g = c.createRadialGradient(0, 0, 0, 0, 0, 19); g.addColorStop(0, 'rgba(8,10,16,.95)'); g.addColorStop(0.7, 'rgba(8,10,16,.9)'); g.addColorStop(1, 'rgba(8,10,16,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(0, 0, 19, 0, 7); c.fill();
+    c.strokeStyle = C[1]; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, 15.5, 0, 7); c.stroke();
+    c.strokeStyle = C[0]; c.lineWidth = 1.2; c.beginPath(); c.arc(0, 0, 15.5, 0, 7); c.stroke();
+    c.rotate(t * 2.4); c.lineCap = 'round';
+    for (var a = 0; a < 2; a++) {
+      c.rotate(Math.PI); c.beginPath();
+      for (var i = 0; i <= 40; i++) { var th = i / 40 * 2.6 * Math.PI, r = 0.6 + th / (2.6 * Math.PI) * 12.5; if (i) c.lineTo(Math.cos(th) * r, Math.sin(th) * r); else c.moveTo(Math.cos(th) * r, Math.sin(th) * r); }
+      c.strokeStyle = C[1]; c.lineWidth = 3.4; c.stroke(); c.strokeStyle = C[0]; c.lineWidth = 1.5; c.stroke();
+    }
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(0, 0, 1.8, 0, 7); c.fill();
+    c.restore();
+  }
+  function buco(c, x, y, t) {
+    c.save(); c.translate(x, y); c.scale(0.74, 1.12);
+    var g = c.createRadialGradient(0, 0, 0, 0, 0, 24); g.addColorStop(0, '#000'); g.addColorStop(0.5, '#000'); g.addColorStop(0.72, 'rgba(46,16,84,.9)'); g.addColorStop(1, 'rgba(46,16,84,0)');
+    c.fillStyle = g; c.beginPath(); c.arc(0, 0, 24, 0, 7); c.fill();
+    c.lineCap = 'round';
+    for (var i = 0; i < 4; i++) {
+      var a = -t * (1.6 + i * 0.5) + i * 1.7, r = 13.5 + i * 2.2;
+      c.strokeStyle = 'rgba(' + (i % 2 ? '255,190,120' : '190,150,255') + ',' + (0.75 - i * 0.14) + ')'; c.lineWidth = 1.7 - i * 0.25;
+      c.beginPath(); c.arc(0, 0, r, a, a + 1.9 - i * 0.25); c.stroke();
+    }
+    c.fillStyle = '#000'; c.beginPath(); c.arc(0, 0, 11.5, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(255,225,190,.5)'; c.lineWidth = 0.8; c.beginPath(); c.arc(0, 0, 11.8, 0, 7); c.stroke();
+    c.restore();
+  }
+  function leva(c, x, y, a) {      // a: 0 = alzata (laser accesi), 1 = abbassata
+    c.save(); c.translate(x, y);
+    c.fillStyle = 'rgba(0,0,0,.35)'; rettTondo(c, -13, -15, 30, 36, 5); c.fill();
+    c.fillStyle = '#39434f'; rettTondo(c, -15, -18, 30, 36, 5); c.fill();
+    c.strokeStyle = '#59677a'; c.lineWidth = 1.2; rettTondo(c, -15, -18, 30, 36, 5); c.stroke();
+    c.fillStyle = '#12171d'; rettTondo(c, -9, -3, 18, 6, 3); c.fill();
+    var ang = (-0.75 + a * 1.5), kx = Math.sin(ang) * 14, ky = -Math.cos(ang) * 6 - 4;
+    c.lineCap = 'round'; c.strokeStyle = '#1b2128'; c.lineWidth = 6; c.beginPath(); c.moveTo(0, 0); c.lineTo(kx, ky); c.stroke();
+    c.strokeStyle = '#c7d0d9'; c.lineWidth = 3.4; c.beginPath(); c.moveTo(0, 0); c.lineTo(kx, ky); c.stroke();
+    var col = a > 0.5 ? '#35d07f' : '#ff3b3b';
+    c.fillStyle = '#10151b'; c.beginPath(); c.arc(kx, ky, 6.2, 0, 7); c.fill();
+    c.fillStyle = col; c.beginPath(); c.arc(kx, ky, 5, 0, 7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.6)'; c.beginPath(); c.arc(kx - 1.6, ky - 1.8, 1.6, 0, 7); c.fill();
+    c.fillStyle = col; c.beginPath(); c.arc(0, 12, 2.4, 0, 7); c.fill();
+    c.restore();
+  }
+  function rettTondo(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  function triangoli(c, x0, y0, x1, y1, t) {     // tre frecce verso sinistra, come nel disegno
+    var w = x1 - x0, h = y1 - y0, cy = (y0 + y1) / 2, lt = Math.min(h * 0.6, w * 0.3), at = lt * 0.5;
+    for (var i = 0; i < 3; i++) {
+      var cx = x0 + w * (0.24 + i * 0.26), f = 0.5 + 0.5 * Math.sin(t * 5 + i * 1.3);
+      c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.moveTo(cx - lt * 0.5 + 2, cy + 3); c.lineTo(cx + lt * 0.5 + 2, cy - at + 3); c.lineTo(cx + lt * 0.5 + 2, cy + at + 3); c.closePath(); c.fill();
+      var g = c.createLinearGradient(cx - lt * 0.5, 0, cx + lt * 0.5, 0); g.addColorStop(0, 'rgb(255,' + Math.round(150 + 70 * f) + ',' + Math.round(40 + 60 * f) + ')'); g.addColorStop(1, 'rgb(' + Math.round(205 + 40 * f) + ',70,20)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(cx - lt * 0.5, cy); c.lineTo(cx + lt * 0.5, cy - at); c.lineTo(cx + lt * 0.5, cy + at); c.closePath(); c.fill();
+      c.strokeStyle = 'rgba(90,30,0,.7)'; c.lineWidth = Math.max(0.8, lt * 0.03); c.stroke();
+    }
+  }
+  function scritta(testo, x, y, px, colore, spazio) {
+    ctx.save(); ctx.font = '900 ' + px + 'px ui-rounded,"SF Pro Rounded","Avenir Next","Segoe UI",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    try { ctx.letterSpacing = (spazio || 0) + 'px'; } catch (e) {}
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillText(testo, x + 1.5, y + 2); ctx.fillStyle = colore; ctx.fillText(testo, x, y); ctx.restore();
+  }
+  function pavimentoZone(t) {
+    var b, g, i;
+    // VIA
+    b = D.via.box; ctx.fillStyle = 'rgba(40,150,95,.34)'; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    ctx.strokeStyle = 'rgba(120,255,190,.5)'; ctx.lineWidth = 2; ctx.setLineDash([7, 6]); ctx.strokeRect(b[0] + 8, b[1] + 8, b[2] - b[0] - 16, b[3] - b[1] - 16); ctx.setLineDash([]);
+    ctx.save(); ctx.translate(D.via.p[0], D.via.p[1] - 6); ctx.scale(0.74, 1.12);
+    g = ctx.createRadialGradient(0, 0, 0, 0, 0, 19); g.addColorStop(0, '#05080b'); g.addColorStop(0.75, '#05080b'); g.addColorStop(1, 'rgba(5,8,11,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 19, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(140,255,200,' + (0.55 + 0.25 * Math.sin(t * 3)) + ')'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(0, 0, 14.5, 0, 7); ctx.stroke(); ctx.restore();
+    scritta('VIA', (b[0] + b[2]) / 2, b[3] - 26, 30, '#d9ffec', 2);
+    // FINE: scacchi da traguardo
+    b = D.fine.box; var q = 16.5, nx = Math.round((b[2] - b[0]) / q), ny = 4; q = (b[3] - b[1]) / ny; var qx = (b[2] - b[0]) / nx;
+    for (var j = 0; j < ny; j++) for (i = 0; i < nx; i++) { ctx.fillStyle = (i + j) % 2 ? 'rgba(236,240,245,.2)' : 'rgba(10,12,16,.38)'; ctx.fillRect(b[0] + i * qx, b[1] + j * q, qx + 0.3, q + 0.3); }
+    g = ctx.createLinearGradient(0, b[1], 0, b[3]); g.addColorStop(0, 'rgba(242,194,48,.28)'); g.addColorStop(1, 'rgba(242,194,48,.08)'); ctx.fillStyle = g; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    scritta('FINE', (b[0] + b[2]) / 2, (b[1] + b[3]) / 2 + 1, 44, '#fff3c4', 6);
+    // stanzino della leva: strisce di avviso
+    b = D.leva.box; ctx.save(); ctx.beginPath(); ctx.rect(b[0], b[1], b[2] - b[0], b[3] - b[1]); ctx.clip();
+    ctx.fillStyle = 'rgba(15,18,22,.55)'; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    ctx.strokeStyle = 'rgba(242,194,48,.34)'; ctx.lineWidth = 7; ctx.beginPath();
+    for (i = -8; i < 14; i++) { ctx.moveTo(b[0] + i * 20, b[3]); ctx.lineTo(b[0] + i * 20 + (b[3] - b[1]), b[1]); } ctx.stroke(); ctx.restore();
+    // galleria a senso unico
+    b = D.frecce.box; ctx.fillStyle = 'rgba(10,12,16,.6)'; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    ctx.strokeStyle = 'rgba(255,138,42,.5)'; ctx.lineWidth = 2; ctx.setLineDash([10, 8]); ctx.lineDashOffset = t * 26;
+    ctx.beginPath(); ctx.moveTo(b[0] + 6, b[1] + 12); ctx.lineTo(b[2] - 6, b[1] + 12); ctx.moveTo(b[0] + 6, b[3] - 12); ctx.lineTo(b[2] - 6, b[3] - 12); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    triangoli(ctx, b[0] + 20, b[1] + 22, b[2] - 20, b[3] - 22, t);
+    // vetrata
+    b = D.vetro; g = ctx.createLinearGradient(b[0], b[1], b[2], b[3]); g.addColorStop(0, 'rgba(120,190,235,.34)'); g.addColorStop(0.5, 'rgba(60,110,160,.22)'); g.addColorStop(1, 'rgba(120,190,235,.3)');
+    ctx.fillStyle = g; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    ctx.lineCap = 'round';
+    D.decor.forEach(function (d) { ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(d[0], d[1]); ctx.lineTo(d[2], d[3]); ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; ctx.stroke(); });
+  }
+  function porte() {       // stipiti ai lati dei varchi
+    var colori = { via: '#35d07f', fine: '#f2c230', leva: '#f2c230', frecce: '#ff8a2a' };
+    D.porte.forEach(function (p) {
+      var col = colori[p.t]; if (!col) return;
+      [p.a, p.b].forEach(function (v) {
+        var x = p.o === 'h' ? v : p.c, y = p.o === 'h' ? p.c : v;
+        ctx.fillStyle = '#1c232b'; ctx.fillRect(x - 5.5, y - 5.5 - ALT, 11, 11 + ALT);
+        ctx.fillStyle = '#e2e8ee'; ctx.fillRect(x - 5.5, y - 5.5 - ALT - 2, 11, 11);
+        ctx.fillStyle = col; ctx.fillRect(x - 3, y - 3 - ALT - 2, 6, 6);
+      });
+    });
+  }
+  function laser(t, luci) {
+    D.laser.forEach(function (L, i) {
+      var x1 = L.p[0], y1 = L.p[1], x2 = L.p[2], y2 = L.p[3], a = L.r ? S.laserA : 0, sy = -ALT * 0.7;
+      if (luci) { if (a > 0.02) { var n = Math.max(1, Math.round(Math.hypot(x2 - x1, y2 - y1) / 40)); for (var k = 0; k <= n; k++) alone(x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n + sy, 46, '255,50,50', 0.2 * a); } return; }
+      ctx.lineCap = 'round';
+      if (a < 0.98) {      // spento: traccia azzurra tratteggiata
+        ctx.strokeStyle = 'rgba(92,200,255,' + 0.42 * (1 - a) + ')'; ctx.lineWidth = 1.6; ctx.setLineDash([3, 6]); ctx.beginPath(); ctx.moveTo(x1, y1 + sy); ctx.lineTo(x2, y2 + sy); ctx.stroke(); ctx.setLineDash([]);
+      }
+      if (a > 0.02) {
+        var tremo = a < 0.98 ? (Math.sin(t * 60 + i) > -0.2 ? 1 : 0.25) : 0.92 + 0.08 * Math.sin(t * 31 + i * 2);
+        var mx = (x2 - x1), my = (y2 - y1), l = Math.hypot(mx, my), ox = -my / l, oy = mx / l, pezzi = Math.max(3, Math.round(l / 9));
+        ctx.beginPath(); ctx.moveTo(x1, y1 + sy);
+        for (var q = 1; q < pezzi; q++) { var w = Math.sin(q * 2.4 + t * 22 + i * 3) * 1.3; ctx.lineTo(x1 + mx * q / pezzi + ox * w, y1 + my * q / pezzi + oy * w + sy); }
+        ctx.lineTo(x2, y2 + sy);
+        ctx.strokeStyle = 'rgba(255,40,40,' + 0.28 * a * tremo + ')'; ctx.lineWidth = 11; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,70,70,' + 0.75 * a * tremo + ')'; ctx.lineWidth = 4.6; ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,240,235,' + a * tremo + ')'; ctx.lineWidth = 1.7; ctx.stroke();
+      }
+      [[x1, y1], [x2, y2]].forEach(function (e) {      // emettitori
+        ctx.fillStyle = '#161b21'; ctx.fillRect(e[0] - 6, e[1] - 6 - ALT, 12, 12 + ALT);
+        ctx.fillStyle = '#56636f'; ctx.fillRect(e[0] - 6, e[1] - 6 - ALT - 2, 12, 12);
+        ctx.fillStyle = '#20262d'; ctx.fillRect(e[0] - 4, e[1] - 4 - ALT - 2, 8, 8);
+        ctx.fillStyle = a > 0.5 ? '#ff4a4a' : '#5cc8ff'; ctx.beginPath(); ctx.arc(e[0], e[1] - ALT - 2, 2.6, 0, 7); ctx.fill();
+      });
+    });
+  }
+  function pallina(c, x, y, r, dir, rot) {
+    var g = c.createRadialGradient(x - r * 0.38, y - r * 0.42, r * 0.08, x, y, r * 1.02);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.2, '#d9f1ff'); g.addColorStop(0.62, '#3aa3e6'); g.addColorStop(1, '#0a3c69');
+    c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
+    c.strokeStyle = 'rgba(4,22,40,.85)'; c.lineWidth = Math.max(0.8, r * 0.1); c.stroke();
+    c.save(); c.beginPath(); c.arc(x, y, r * 0.93, 0, 7); c.clip();       // fascia che gira mentre rotola
+    c.translate(x, y); c.rotate(dir);
+    var s = Math.sin(rot) * r * 0.9;
+    c.strokeStyle = 'rgba(255,138,42,.9)'; c.lineWidth = r * 0.26; c.beginPath(); c.moveTo(s, -r); c.lineTo(s, r); c.stroke();
+    c.fillStyle = '#0c1a27'; c.beginPath(); c.arc(r * 0.46, -r * 0.34, r * 0.17, 0, 7); c.arc(r * 0.46, r * 0.34, r * 0.17, 0, 7); c.fill();
+    c.restore();
+    c.fillStyle = 'rgba(255,255,255,.75)'; c.beginPath(); c.arc(x - r * 0.36, y - r * 0.42, r * 0.16, 0, 7); c.fill();
+  }
+
+  // ---------- disegno: scena ----------
+  function misura() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2); vw = tela.clientWidth; vh = tela.clientHeight;
+    if (tela.width !== Math.round(vw * dpr) || tela.height !== Math.round(vh * dpr)) { tela.width = Math.round(vw * dpr); tela.height = Math.round(vh * dpr); }
+    var alto = 56, m = CORN + 4;
+    scMappa = Math.min((vw - 2 * m) / W, (vh - alto - 2 * m + 12) / H);
+    scGioco = Math.max(scMappa, Math.max(0.92, Math.min(1.15, vw / 640)));
+  }
+  function inquadra(dt) {
+    var alto = 56, tutto = mappa || ui === 'home' || scGioco <= scMappa + 1e-6, s = tutto ? scMappa : scGioco, tx, ty;
+    if (tutto) { tx = W / 2; ty = H / 2; }
+    else {
+      var mx = (vw / 2) / s, my = ((vh - alto) / 2) / s, bordo = CORN + 6;
+      tx = 2 * mx >= W + 2 * bordo ? W / 2 : Math.max(mx - bordo, Math.min(W + bordo - mx, S.x));
+      ty = 2 * my >= H + 2 * bordo ? H / 2 : Math.max(my - bordo, Math.min(H + bordo - my, S.y));
+    }
+    var k = dt < 0 ? 1 : Math.min(1, dt * 7);
+    cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k; cam.s += (s - cam.s) * k;
+  }
+  function disegna(t) {
+    var alto = 56, s = cam.s, ox = vw / 2 - cam.x * s, oy = (vh + alto) / 2 - cam.y * s, i, p;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#07090d'; ctx.fillRect(0, 0, vw, vh);
+    ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
+    ctx.fillStyle = motivo; ctx.fillRect(0, 0, W, H);
+    pavimentoZone(t);
+    for (i = 0; i < D.buchi.length; i++) buco(ctx, D.buchi[i][0], D.buchi[i][1], t);
+    for (i = 0; i < PORT.length; i++) portale(ctx, PORT[i].x, PORT[i].y, PORT[i].c, t + i);
+    leva(ctx, D.leva.p[0], D.leva.p[1], S.levaA);
+    ombreMuri();
+    // pallina
+    var sc = 1, px = S.x, py = S.y;
+    if (S.modo === 'caduta') sc = Math.max(0, 1 - S.an * 1.15);
+    else if (S.modo === 'tele') sc = Math.abs(1 - S.an * 2);
+    else if (S.nasce > 0) sc = 1 - S.nasce;
+    if (S.scossa > 0) { px += Math.sin(t * 90) * 1.6 * S.scossa; py += Math.cos(t * 77) * 1.6 * S.scossa; }
+    var su = 5 * sc;        // la pallina è alta: si disegna un po' più su del punto in cui tocca terra
+    if (sc > 0.02) { ctx.fillStyle = 'rgba(0,0,0,.42)'; ctx.beginPath(); ctx.ellipse(px + 3 * sc, py + 3 * sc, R * sc, R * 0.7 * sc, 0, 0, 7); ctx.fill(); }
+    muri();
+    if (sc > 0.02) {
+      pallina(ctx, px, py - su, R * sc, S.dir, S.rot);
+      ctx.save(); ctx.beginPath(); ctx.rect(px - 18, py + 1.5, 36, 26); ctx.clip(); muri(); ctx.restore();     // i muri davanti la coprono
+    }
+    porte();
+    laser(t, false);
+    // luci
+    ctx.globalCompositeOperation = 'lighter';
+    laser(t, true);
+    for (i = 0; i < PORT.length; i++) { p = PORT[i]; alone(p.x, p.y, 52, COL[p.c][2], 0.2 + 0.06 * Math.sin(t * 3 + i)); }
+    alone(D.leva.p[0], D.leva.p[1], 40, S.leva ? '53,208,127' : '255,59,59', 0.16);
+    var fb = D.fine.box; alone((fb[0] + fb[2]) / 2, (fb[1] + fb[3]) / 2, 150, '242,194,48', 0.1 + 0.04 * Math.sin(t * 2));
+    if (S.modo === 'tele') { p = S.an < 0.5 ? S.da : S.a; alone(p.x, p.y, 90, COL[p.c][2], 0.7 * (1 - Math.abs(1 - S.an * 2))); }
+    if (S.scossa > 0) alone(px, py, 40, '255,90,70', 0.5 * S.scossa);
+    ctx.globalCompositeOperation = 'source-over';
+    // buio lontano dalla pallina: la luce segue chi gioca
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var lx = ox + S.x * s, ly = oy + S.y * s, raggio = Math.max(vw, vh) * 0.78, tutto = mappa || ui === 'home';
+    var g = ctx.createRadialGradient(lx, ly, 0, lx, ly, raggio);
+    g.addColorStop(0, 'rgba(4,7,11,0)'); g.addColorStop(0.3, 'rgba(4,7,11,' + (tutto ? 0.02 : 0.06) + ')'); g.addColorStop(1, 'rgba(4,7,11,' + (tutto ? 0.2 : 0.62) + ')');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, vw, vh);
+    var giu = !tutto && ly < 200;
+    if (giu !== fumGiu) { fumGiu = giu; fum.classList.toggle('sotto', giu); }
+    if (tutto && ui === 'gioco') {       // nella mappa la pallina è piccola: un cerchio la indica
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.5 + 0.4 * Math.sin(t * 6)) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly, 12 + 3 * Math.sin(t * 6), 0, 7); ctx.stroke();
+    }
+    if (joy && ui === 'gioco') {
+      ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 42, 0, 7); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.beginPath(); ctx.arc(joy.x, joy.y, 17, 0, 7); ctx.fill();
+    }
+  }
+
+  // ---------- cruscotto e schermate ----------
+  function mmss(t) { var s = Math.floor(t); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  var ultimoSec = -1;
+  function aggiornaHud() {
+    $('#hTempo').textContent = mmss(S.t);
+    var hl = $('#hLaser'); hl.classList.toggle('spenti', S.leva); hl.querySelector('b').textContent = S.leva ? 'Laser spenti' : 'Laser accesi';
+    var hc = $('#hCadute'); hc.hidden = !S.cadute; hc.textContent = 'Cadute ' + S.cadute;
+    $('#bMappa').classList.toggle('attiva', mappa);
+  }
+  function mostra(q) {
+    ui = q;
+    ['sHome', 'sRegole', 'sPausa', 'sFine'].forEach(function (id) { $('#' + id).hidden = true; });
+    $('#hud').hidden = !(q === 'gioco' || q === 'pausa' || q === 'regole');
+    if (q === 'home') { $('#sHome').hidden = false; $('#bGioca').textContent = DB.partita ? 'Continua' : 'Gioca'; $('#bNuova').hidden = !DB.partita; $('#record').textContent = DB.record ? 'Record: ' + mmss(DB.record.t) + (DB.record.c ? ' · cadute ' + DB.record.c : '') : ''; fum.hidden = true; }
+    if (q === 'pausa') { $('#sPausa').hidden = false; $('#pSuono').textContent = 'Suono: ' + (DB.suono ? 'sì' : 'no'); }
+    if (q === 'regole') { $('#sRegole').hidden = false; icone(); }
+    if (q === 'fine') $('#sFine').hidden = false;
+    if (q === 'gioco') { aggiornaHud(); tela.focus(); }
+  }
+  var tornaA = 'home';
+  function salvaPartita() { if (S.modo === 'vinto') return; DB.partita = { x: Math.round(S.x), y: Math.round(S.y), leva: S.leva, t: Math.round(S.t * 10) / 10, cadute: S.cadute }; salva(); }
+  function gioca(daCapo) {
+    if (daCapo || !DB.partita) { DB.partita = null; salva(); nuovo(null); mappa = false; mostra('gioco'); dici('Parti dal VIA e arriva alla stanza con scritto FINE.', 5); }
+    else { nuovo(DB.partita); mappa = false; mostra('gioco'); }
+    tasti = {}; joy = null;
+  }
+  function vinto() {
+    S.modo = 'vinto'; suona('vinto');
+    var nuovoRecord = !DB.record || S.t < DB.record.t;
+    if (nuovoRecord) DB.record = { t: Math.round(S.t * 10) / 10, c: S.cadute };
+    DB.partita = null; salva();
+    $('#fTempo').textContent = mmss(S.t);
+    $('#fConti').innerHTML = '<dt>Cadute nei buchi neri</dt><dd>' + S.cadute + '</dd><dt>Record</dt><dd>' + mmss(DB.record.t) + '</dd>';
+    $('#fRecord').hidden = !nuovoRecord;
+    fum.hidden = true;
+    setTimeout(function () { if (S.modo === 'vinto') mostra('fine'); }, 700);
+  }
+  function icone() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-icona]'), function (cv) {
+      var c = cv.getContext('2d'), q = cv.dataset.icona; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 88, 88); c.setTransform(2, 0, 0, 2, 0, 0);
+      var vecchio = ctx; ctx = c;
+      if (q === 'via') { scritta('VIA', 22, 23, 15, '#8dffc4', 1); }
+      else if (q === 'fine') { scritta('FINE', 22, 23, 12.5, '#ffe58a', 1); }
+      else if (q === 'leva') leva(c, 22, 25, 0);
+      else if (q === 'laser') { c.lineCap = 'round'; c.strokeStyle = 'rgba(255,40,40,.35)'; c.lineWidth = 8; c.beginPath(); c.moveTo(7, 15); c.lineTo(37, 15); c.stroke(); c.strokeStyle = '#ff5a5a'; c.lineWidth = 3; c.stroke(); c.strokeStyle = '#fff'; c.lineWidth = 1; c.stroke(); c.strokeStyle = 'rgba(92,200,255,.9)'; c.lineWidth = 1.6; c.setLineDash([3, 5]); c.beginPath(); c.moveTo(7, 31); c.lineTo(37, 31); c.stroke(); c.setLineDash([]); }
+      else if (q === 'portale') { portale(c, 14, 22, 'oro', 0.4, 0.62); portale(c, 31, 22, 'verde', 1.2, 0.62); }
+      else if (q === 'frecce') triangoli(c, 3, 8, 41, 36, 1);
+      else if (q === 'buco') { c.save(); c.translate(22, 22); c.scale(0.9, 0.9); buco(c, 0, 0, 0.8); c.restore(); }
+      ctx = vecchio;
+    });
+  }
+
+  // ---------- comandi ----------
+  function pausa() { if (ui === 'gioco') { salvaPartita(); mostra('pausa'); } else if (ui === 'pausa') mostra('gioco'); }
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'Escape' || e.code === 'KeyP') { if (ui === 'regole') { mostra(tornaA); } else pausa(); e.preventDefault(); return; }
+    if (ui !== 'gioco') return;
+    if (e.code === 'KeyM') { mappa = !mappa; aggiornaHud(); return; }
+    if (/^Arrow|^Key[WASD]$/.test(e.code)) { tasti[e.code] = true; e.preventDefault(); }
+  });
+  window.addEventListener('keyup', function (e) { tasti[e.code] = false; });
+  window.addEventListener('blur', function () { tasti = {}; joy = null; });
+  tela.addEventListener('pointerdown', function (e) { if (ui !== 'gioco') return; joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY }; try { tela.setPointerCapture(e.pointerId); } catch (x) {} e.preventDefault(); });
+  tela.addEventListener('pointermove', function (e) {
+    if (!joy || e.pointerId !== joy.id) return;
+    joy.x = e.clientX; joy.y = e.clientY;
+    var dx = joy.x - joy.ox, dy = joy.y - joy.oy, l = Math.hypot(dx, dy);
+    if (l > 58) { joy.ox = joy.x - dx / l * 58; joy.oy = joy.y - dy / l * 58; }      // il centro segue il dito
+  });
+  function molla(e) { if (joy && e.pointerId === joy.id) joy = null; }
+  tela.addEventListener('pointerup', molla); tela.addEventListener('pointercancel', molla);
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && ui === 'gioco') pausa(); });
+  window.addEventListener('pagehide', function () { if (ui === 'gioco' || ui === 'pausa') salvaPartita(); });
+  window.addEventListener('resize', misura);
+  $('#bPausa').onclick = pausa;
+  $('#bMappa').onclick = function () { mappa = !mappa; aggiornaHud(); tela.focus(); };
+  $('#bGioca').onclick = function () { gioca(false); };
+  $('#bNuova').onclick = function () { gioca(true); };
+  $('#bRegole').onclick = function () { tornaA = 'home'; mostra('regole'); };
+  $('#pRegole').onclick = function () { tornaA = 'pausa'; mostra('regole'); };
+  $('#rChiudi').onclick = function () { mostra(tornaA); };
+  $('#pRiprendi').onclick = function () { mostra('gioco'); };
+  $('#pRicomincia').onclick = function () { gioca(true); };
+  $('#pSuono').onclick = function () { DB.suono = !DB.suono; salva(); $('#pSuono').textContent = 'Suono: ' + (DB.suono ? 'sì' : 'no'); };
+  $('#pCasa').onclick = function () { mostra('home'); };
+  $('#fRigioca').onclick = function () { gioca(true); };
+  $('#fCasa').onclick = function () { nuovo(null); mostra('home'); };
+
+  // ---------- ciclo ----------
+  var salvaT = 0;
+  function quadro(ora) {
+    var dt = Math.min(0.05, (ora - tempoPrec) / 1000 || 0); tempoPrec = ora;
+    if (ui === 'gioco') {
+      passo(dt);
+      var sec = Math.floor(S.t); if (sec !== ultimoSec) { ultimoSec = sec; $('#hTempo').textContent = mmss(S.t); }
+      salvaT += dt; if (salvaT > 2 && S.modo === 'gioco' && S.partito) { salvaT = 0; salvaPartita(); }
+    } else orologio += dt;
+    inquadra(dt);
+    disegna(ora / 1000);
+    requestAnimationFrame(quadro);
+  }
+
+  // ---------- prove ----------
+  window.__ll = {
+    stato: function () { return { x: Math.round(S.x), y: Math.round(S.y), leva: S.leva, modo: S.modo, t: Math.round(S.t * 10) / 10, cadute: S.cadute, ui: ui, mappa: mappa, scala: Math.round(cam.s * 100) / 100 }; },
+    vai: function (x, y) { S.x = x; S.y = y; S.vx = S.vy = 0; },
+    collaudo: function (punti, secondi) {      // fa percorrere alla pallina una fila di punti con il motore vero, senza disegnare
+      gioca(true); S.auto = { p: punti, i: 0 };
+      var n = 0, max = (secondi || 400) * 60, eventi = [], pm = S.modo, pl = S.leva;
+      while (S.modo !== 'vinto' && n < max) { passo(1 / 60); n++; if (S.modo !== pm) { if (S.modo !== 'gioco') eventi.push(S.modo); pm = S.modo; } if (S.leva !== pl) { eventi.push('leva'); pl = S.leva; } if (S.auto.i >= punti.length && S.modo === 'gioco') break; }
+      var r = { vinto: S.modo === 'vinto', secondi: Math.round(n / 60), punto: S.auto.i + '/' + punti.length, eventi: eventi, x: Math.round(S.x), y: Math.round(S.y), cadute: S.cadute };
+      S.auto = null; return r;
+    }
+  };
+
+  misura(); faiPavimento(); inquadra(-1); mostra('home');
+  requestAnimationFrame(quadro);
+})();
+
+</script>
+<script src="../../piattaforma.js" data-gioco="labirinto-laser" data-titolo="Il Labirinto dei Laser" data-nome="Sala Giochi" data-pausa="#bPausa" data-casa="destra"></script>
+</body>
+</html>
