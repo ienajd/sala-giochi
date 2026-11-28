@@ -220,6 +220,8 @@ const BRANI={
   mel2:'D5:6|B4:6|E5:6|D5:3 A4:3|B4:6|G4:3 B4:3|C5:6|A4:6',forma:['p','pm','bp','bpn']})
 };
 const AMB0={vento:.035,pioggia:0,dentro:0,grilli:false,treno:0};
+const AMB_BIV={vento:.03,pioggia:0,dentro:0,grilli:true,treno:0,fuoco:true,vita:['coyote','gufo','cavallo'],eco:.1};
+const AMB_TIT={vento:.06,pioggia:0,dentro:0,grilli:false,treno:0,vita:['rintocco','corvo','cigolio','aquila'],eco:.12};
 const Au={ctx:null,on:leggi('audio',true),out:null,mus:null,rum:null,note:{},modo:null,br:null,pross:0,passo:0,sapore:0,ambS:AMB0,gV:null,gP:null,gD:null,trT:0,
  avvia(){
   if(this.ctx){ if(this.ctx.state==='suspended') this.ctx.resume(); return; }
@@ -229,6 +231,11 @@ const Au={ctx:null,on:leggi('audio',true),out:null,mus:null,rum:null,note:{},mod
    const comp=c.createDynamicsCompressor(); comp.connect(c.destination);
    this.out=c.createGain(); this.out.gain.value=this.on?0.9:0; this.out.connect(comp);
    this.mus=c.createGain(); this.mus.gain.value=0.36; this.mus.connect(this.out);
+   // gli effetti passano da qui: nei canyon e nelle miniere una parte torna indietro come eco
+   this.fx=c.createGain(); this.fx.connect(this.out);
+   const dl=c.createDelay(1), lp=c.createBiquadFilter(), fb=c.createGain(); dl.delayTime.value=.29; lp.type='lowpass'; lp.frequency.value=1700; fb.gain.value=.36;
+   this.ecoS=c.createGain(); this.ecoS.gain.value=0; this.fx.connect(this.ecoS); this.ecoS.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(this.out);
+   this.reg=c.createGain(); this.reg.gain.value=1; this.reg.connect(this.out);   // i brani registrati
    const n=c.sampleRate*2, b=c.createBuffer(1,n,c.sampleRate), d=b.getChannelData(0);
    for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
    this.rum=b;
@@ -238,24 +245,26 @@ const Au={ctx:null,on:leggi('audio',true),out:null,mus:null,rum:null,note:{},mod
    this.gV=fondo('bandpass',380,.6,0,.13,.6);      // vento
    this.gP=fondo('highpass',2400,.5,0);             // pioggia
    this.gD=fondo('bandpass',320,.5,0,.31,.5);       // brusio al chiuso
+   this.gA=fondo('lowpass',620,.4,0,.37,.45);       // acqua che scorre
    this.ambiente(this.ambS);
    setInterval(()=>this.batti(),90);
+   Col.sveglia();
   }catch(e){this.ctx=null}
  },
  voce(v){this.on=v;salva('audio',v);if(this.out)this.out.gain.value=v?0.9:0},
- ambiente(a){ this.ambS=a; const c=this.ctx; if(!c||!this.gV) return; const t=c.currentTime; this.gV.gain.setTargetAtTime(a.vento||0,t,.6); this.gP.gain.setTargetAtTime(a.pioggia||0,t,.6); this.gD.gain.setTargetAtTime(a.dentro||0,t,.6) },
+ ambiente(a){ this.ambS=a; const c=this.ctx; if(!c||!this.gV) return; const t=c.currentTime; this.gV.gain.setTargetAtTime(a.vento||0,t,.6); this.gP.gain.setTargetAtTime(a.pioggia||0,t,.6); this.gD.gain.setTargetAtTime(a.dentro||0,t,.6); this.gA.gain.setTargetAtTime(a.acqua||0,t,.6); this.ecoS.gain.setTargetAtTime(a.eco||0,t,.4); this.vT=t+tra(2,5) },
  soffio(dur,tipo,f0,f1,vol,quando,q,dest){
   const c=this.ctx; if(!c) return; const t=(quando||c.currentTime);
   const s=c.createBufferSource(); s.buffer=this.rum; s.loop=true;
   const f=c.createBiquadFilter(); f.type=tipo; f.Q.value=q||.8; f.frequency.setValueAtTime(f0,t); f.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t+dur);
   const g=c.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
-  s.connect(f); f.connect(g); g.connect(dest||this.out); s.start(t,Math.random()); s.stop(t+dur+.02);
+  s.connect(f); f.connect(g); g.connect(dest||this.fx||this.out); s.start(t,Math.random()); s.stop(t+dur+.02);
  },
  tono(tipo,f0,f1,dur,vol,quando,dest){
   const c=this.ctx; if(!c) return; const t=(quando||c.currentTime);
   const o=c.createOscillator(); o.type=tipo; o.frequency.setValueAtTime(f0,t); if(f1!==f0) o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
   const g=c.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(vol,t+.006); g.gain.exponentialRampToValueAtTime(.0008,t+dur);
-  o.connect(g); g.connect(dest||this.out); o.start(t); o.stop(t+dur+.03);
+  o.connect(g); g.connect(dest||this.fx||this.out); o.start(t); o.stop(t+dur+.03);
  },
  sparo(){ this.soffio(.28,'lowpass',5200,260,.95); this.tono('sine',170,38,.2,.9); this.soffio(.06,'highpass',2500,2500,.4); this.soffio(.9,'lowpass',900,150,.12,this.ctx&&this.ctx.currentTime+.05) },
  sparoLontano(){ this.soffio(.22,'lowpass',1700,200,.42); this.tono('sine',130,45,.14,.3); this.soffio(.7,'lowpass',600,120,.07,this.ctx&&this.ctx.currentTime+.06) },
@@ -276,6 +285,30 @@ const Au={ctx:null,on:leggi('audio',true),out:null,mus:null,rum:null,note:{},mod
  cigolio(){ const c=this.ctx; if(!c) return; for(let i=0;i<3;i++) this.tono('sine',i%2?1180:880,i%2?900:1220,.2,.035,c.currentTime+i*.3) },
  freni(){ const c=this.ctx; if(!c) return; this.tono('sawtooth',1900,1300,2.2,.035); this.tono('sine',2650,1800,2.2,.03); this.soffio(2.6,'highpass',3000,1200,.16); this.soffio(1.6,'highpass',5000,2500,.2,c.currentTime+2.2) },
  lento(){ this.tono('sine',95,26,1.9,.9); this.soffio(2.2,'lowpass',800,60,.6); this.tono('sine',2400,2350,1.7,.025) },
+ // un verso: la nota scivola lungo i punti dati, con attacco e coda morbidi
+ verso(pts,dur,vol,o){ const c=this.ctx; if(!c) return; o=o||{}; const t=(o.t||c.currentTime), os=c.createOscillator(), g=c.createGain(); os.type=o.onda||'sine';
+  os.frequency.setValueAtTime(pts[0],t); for(let i=1;i<pts.length;i++) os.frequency.linearRampToValueAtTime(pts[i],t+dur*i/(pts.length-1));
+  const a=o.att||.06; g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(vol,t+a); g.gain.setValueAtTime(vol,t+Math.max(a,dur*.6)); g.gain.linearRampToValueAtTime(.0001,t+dur);
+  let u=os; if(o.fr){ const f=c.createBiquadFilter(); f.type=o.filtro||'lowpass'; f.frequency.value=o.fr; f.Q.value=o.q||1; os.connect(f); u=f }
+  if(o.vib){ const l=c.createOscillator(), gl=c.createGain(); l.frequency.value=o.vibF||6; gl.gain.value=pts[0]*o.vib; l.connect(gl); gl.connect(os.frequency); l.start(t); l.stop(t+dur+.05) }
+  u.connect(g); g.connect(this.fx); os.start(t); os.stop(t+dur+.05) },
+ coyote(){ const c=this.ctx; if(!c) return; const t=c.currentTime, b=tra(400,470); for(let i=0;i<2;i++) this.verso([b*1.2,b*1.5,b*1.2],.13,.018,{t:t+i*.2}); this.verso([b,b*1.55,b*1.5,b*1.42,b*.95],tra(1.5,2.1),.03,{t:t+.5,vib:.012,vibF:5,att:.2}) },
+ lupo(){ const b=tra(300,350); this.verso([b,b*1.5,b*1.48,b*1.45,b*1.05],tra(2,2.7),.032,{vib:.008,vibF:4.5,att:.35}) },
+ gufo(){ const c=this.ctx; if(!c) return; const t=c.currentTime, b=tra(330,370); this.verso([b,b*.97],.22,.03,{t:t,att:.04}); this.verso([b,b*.97],.2,.026,{t:t+.36,att:.04}); this.verso([b*1.02,b*.9],.5,.03,{t:t+.72,att:.05}) },
+ aquila(){ const b=tra(2500,2900); this.verso([b,b*1.04,b*.8,b*.7],tra(.8,1.1),.022,{onda:'sawtooth',filtro:'bandpass',fr:b*.95,q:4,att:.03}) },
+ muggito(){ const b=tra(98,122); this.verso([b,b*.94,b*1.22,b*1.1],tra(1.1,1.5),.09,{onda:'sawtooth',fr:520,q:2,att:.15}) },
+ cavallo(){ const c=this.ctx; if(!c) return; if(R()<.5){ this.soffio(.5,'bandpass',900,300,.07,0,1.2); return } const b=tra(950,1150); this.verso([b,b*1.5,b*1.2,b*.62],.85,.028,{onda:'sawtooth',fr:2400,q:2,vib:.05,vibF:15,att:.05}) },
+ cane(){ const c=this.ctx; if(!c) return; const n=1+(R()*3|0), b=tra(380,460); for(let i=0;i<n;i++){ const t=c.currentTime+i*.26; this.verso([b,b*1.25,b*.7],.1,.035,{t:t,onda:'sawtooth',fr:1300,q:2,att:.01}); this.soffio(.08,'bandpass',1100,700,.05,t,2) } },
+ rintocco(){ const c=this.ctx; if(!c) return; [[1,.1],[2,.06],[2.76,.045],[3.5,.025],[5.4,.02]].forEach(p=>this.tono('sine',196*p[0],196*p[0]*.995,3.6/Math.sqrt(p[0]),p[1])) },
+ goccia(){ const c=this.ctx; if(!c) return; const t=c.currentTime+R()*.3, b=tra(1100,1700); this.tono('sine',b,b*1.7,.06,.06,t); if(R()<.4) this.tono('sine',b*.8,b*1.4,.05,.04,t+tra(.18,.4)) },
+ sasso(){ const c=this.ctx; if(!c) return; const n=3+(R()*4|0); let t=c.currentTime; for(let i=0;i<n;i++){ this.soffio(.07,'bandpass',tra(500,1300),300,.09*(1-i/n*.6),t,2); this.tono('sine',tra(140,220),80,.05,.05,t); t+=tra(.09,.3) } },
+ crepa(){ const c=this.ctx; if(!c) return; const t=c.currentTime; this.soffio(.05,'highpass',2600,5200,.14,t,1); this.verso([900,180,90],.5,.06,{t:t+.02,att:.01}); this.soffio(.7,'lowpass',500,90,.08,t+.05) },
+ folla(){ const c=this.ctx; if(!c) return; const t=c.currentTime; this.soffio(1.6,'bandpass',1000,1500,.07,t,.7); this.soffio(1.2,'bandpass',600,900,.05,t+.2,.8); if(R()<.5) this.verso([700,1100],.3,.012,{t:t+.3,onda:'sawtooth',fr:1800}) },
+ frusta(){ const c=this.ctx; if(!c) return; const t=c.currentTime; this.soffio(.25,'bandpass',500,3800,.03,t,3); this.soffio(.035,'highpass',3200,6000,.3,t+.24,.7); this.tono('sine',240,90,.05,.12,t+.24) },
+ fischioTreno(){ const c=this.ctx; if(!c) return; const t=c.currentTime, d=tra(.9,1.5); [587,698,880].forEach((f,i)=>this.verso([f*.97,f,f,f*.985],d,.014,{t:t,onda:i?'triangle':'sawtooth',fr:2200,att:.12})); this.soffio(d,'bandpass',1500,1200,.025,t,1.2) },
+ speroni(n){ const c=this.ctx; if(!c) return; for(let i=0;i<(n||4);i++){ const t=c.currentTime+.25+i*.62; this.tono('sine',95,50,.09,.22,t); this.soffio(.06,'lowpass',420,150,.16,t); for(let k=0;k<3;k++) this.tono('sine',tra(3300,4600),tra(3200,4400),.11,.022,t+.05+k*.035) } },
+ scoppietta(t){ this.soffio(tra(.012,.04),'bandpass',tra(1400,5200),900,tra(.025,.08),t,2); if(R()<.12) this.tono('sine',tra(160,260),90,.05,.05,t) },
+ finale(ok){ if(!Col.colpo(ok?'vince':'perde')) this.fanfara(ok) },
  galoppo(dur){ const c=this.ctx; if(!c) return; for(let i=0;i<dur/.14;i++) this.colpo('Z',c.currentTime+i*.14+(i%3===2?.05:0),.9,null) },
  tasto(on){ const c=this.ctx; if(!c) return; if(on){ this.tasto(false); const o=c.createOscillator(), q=c.createGain(); o.frequency.value=640; q.gain.setValueAtTime(.0001,c.currentTime); q.gain.linearRampToValueAtTime(.16,c.currentTime+.01); o.connect(q); q.connect(this.out); o.start(); this.tk=[o,q]; this.scatto() } else if(this.tk){ const t=c.currentTime; this.tk[1].gain.setTargetAtTime(.0001,t,.012); this.tk[0].stop(t+.08); this.tk=null } },
  fanfara(ok){ const c=this.ctx; if(!c) return; const n=ok?[57,60,64,69,72,76]:[57,56,52,50,45]; n.forEach((m,i)=>this.pizzica(m,c.currentTime+i*(ok?.13:.26),.5,this.out)) },
@@ -352,13 +385,15 @@ const Au={ctx:null,on:leggi('audio',true),out:null,mus:null,rum:null,note:{},mod
    const g=c.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.linearRampToValueAtTime(.22,t+.01); g.gain.exponentialRampToValueAtTime(.001,t+.34); o.connect(f); f.connect(g); g.connect(m); o.start(t); o.stop(t+.4) }
   else if(k==='W'){ [587,698,880].forEach(fr=>this.tenuta(69+12*Math.log2(fr/440),t,1.5,{vol:.035,onde:['triangle','sine'],ott:[1,2],scord:0,fr:2600,att:.08,ril:.4})); this.soffio(1.5,'bandpass',1400,1200,.05,t,1.2,m) }
  },
- musica(m){ if(this.modo===m) return; this.modo=m; this.br=m&&BRANI[m]?BRANI[m]:null; this.passo=0; if(this.ctx) this.pross=this.ctx.currentTime+.15 },
+ musica(m){ const k=Col.scegli(m); if(this.modo===m&&k===Col.voluta) return; if(m==='duello'&&this.modo!=='duello') this.speroni(4); this.modo=m; this.br=m&&BRANI[m]?BRANI[m]:null; this.passo=0; if(this.ctx) this.pross=this.ctx.currentTime+.15; Col.suona(k) },
  batti(){
   const c=this.ctx; if(!c||c.state!=='running') return;
   const a=this.ambS, ora=c.currentTime;
   if(a.grilli&&R()<.22){ const t=ora+R()*.08, fr=tra(4100,4500); for(let i=0;i<3;i++) this.tono('sine',fr,fr,.035,.012,t+i*.055) }
   if(a.treno>0.05){ if(this.trT<ora) this.trT=ora; while(this.trT<ora+.2){ const n=(this.trN=(this.trN||0)+1); this.soffio(.07,'lowpass',n%4===0?1500:800,300,(n%4===0?.2:.1)*a.treno,this.trT,.8); if(n%8===0){ this.tono('square',170,150,.03,.08*a.treno,this.trT); this.tono('square',170,150,.03,.08*a.treno,this.trT+.11) } this.trT+=.13/Math.max(.35,a.treno) } }
-  if(!this.modo) return;
+  if(a.fuoco){ for(let i=0;i<3;i++) if(R()<.55) this.scoppietta(ora+R()*.09) }
+  if(a.vita&&ora>(this.vT||0)){ this.vT=ora+tra(4,10); const v=a.vita[R()*a.vita.length|0]; if(this[v]) this[v]() }
+  if(!this.modo||Col.viva) return;
   if(this.pross<ora) this.pross=ora+.05;
   while(this.pross<ora+.3){ this.suona(this.passo,this.pross); this.pross+=this.br?this.br.p:.46; this.passo++ }
  },
@@ -386,6 +421,39 @@ const Au={ctx:null,on:leggi('audio',true),out:null,mus:null,rum:null,note:{},mod
   if(B.mel&&f.indexOf('m')>=0) for(const e of B.mel[bar%B.mel.length]) if(e[0]===s) this.canta(B.voce||'fischio',e[1],t,e[2]*P*.95);
   if(B.mel2&&f.indexOf('n')>=0) for(const e of B.mel2[bar%B.mel2.length]) if(e[0]===s) this.canta(B.voce2||'armonica',e[1],t,e[2]*P*.95);
  }
+};
+
+/* ---------------- COLONNA SONORA REGISTRATA (facoltativa) ----------------
+   Il gioco non contiene musica registrata. Chi gioca può caricare un file .ottava preparato sul proprio computer
+   con i brani che possiede: resta nella memoria di questo apparecchio (IndexedDB) e non viene mandato da nessuna parte.
+   Per ogni scena si cerca, nell'ordine: «musica@missione», «musica#capitolo», «musica». Se non c'è, suona la musica del gioco. */
+const Col={buf:null,base:0,voci:null,info:null,chiave:null,voluta:null,viva:false,cache:{},nodo:null,salvata:true,
+ _op(modo,f){ return new Promise((ok,no)=>{ let r; try{ r=indexedDB.open('ottavataglia',1) }catch(e){ no(e); return }
+  r.onupgradeneeded=()=>r.result.createObjectStore('colonna'); r.onerror=()=>no(r.error);
+  r.onsuccess=()=>{ const d=r.result; let q; try{ const tx=d.transaction('colonna',modo); q=f(tx.objectStore('colonna')); tx.oncomplete=()=>{ d.close(); ok(q&&q.result) }; tx.onerror=tx.onabort=()=>{ d.close(); no(tx.error) } }catch(e){ d.close(); no(e) } } }) },
+ leggi(buf){ const dv=new DataView(buf); if(buf.byteLength<12||dv.getUint32(0)!==0x4f545438) throw new Error('formato'); const n=dv.getUint32(4,true), h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,8,n))), v={};
+  for(const q of h.voci){ if(8+n+q.da+q.n>buf.byteLength) throw new Error('tronco'); v[q.k]=q } this.ferma(); this.buf=buf; this.base=8+n; this.voci=v; this.info=h; this.cache={} },
+ avvio(){ this._op('readonly',s=>s.get('pacco')).then(b=>{ if(b){ this.leggi(b); this.rinfresca() } }).catch(()=>{}) },
+ installa(file){ return file.arrayBuffer().then(b=>{ this.leggi(b); return this._op('readwrite',s=>s.put(b,'pacco')).then(()=>{ this.salvata=true },()=>{ this.salvata=false }) }).then(()=>this.rinfresca()) },
+ togli(){ this.ferma(); this.buf=this.voci=this.info=null; this.cache={}; return this._op('readwrite',s=>s.delete('pacco')).catch(()=>{}).then(()=>this.rinfresca()) },
+ rinfresca(){ const m=Au.modo; Au.modo=undefined; Au.musica(m===undefined?null:m) },
+ scegli(m){ if(!m||!this.voci) return null; const i=G.miss, c=[]; if(i>=0&&G.stato!=='titolo') c.push(m+'@'+i,m+'#'+(i/5|0)); c.push(m); for(const k of c) if(this.voci[k]) return k; return null },
+ dati(k){ if(this.cache[k]) return this.cache[k]; const q=this.voci[k], ab=this.buf.slice(this.base+q.da,this.base+q.da+q.n);
+  const p=new Promise((ok,no)=>{ const r=Au.ctx.decodeAudioData(ab,ok,no); if(r&&r.catch) r.catch(()=>{}) }); this.cache[k]=p;
+  const ks=Object.keys(this.cache); if(ks.length>3) for(const x of ks) if(x!==k&&x!==this.chiave&&x!=='vince'&&x!=='perde'){ delete this.cache[x]; break }
+  return p },
+ suona(k){ this.voluta=k; this.viva=!!k; const c=Au.ctx; if(!c||!Au.reg) return; if(k===this.chiave&&(this.nodo||!k)) return; this.chiave=k; const t=c.currentTime;
+  if(this.nodo){ const o=this.nodo; o.s.onended=null; o.g.gain.cancelScheduledValues(t); o.g.gain.setTargetAtTime(0,t,.4); try{ o.s.stop(t+2.4) }catch(e){} this.nodo=null }
+  if(!k) return; const q=this.voci[k];
+  this.dati(k).then(b=>{ if(this.chiave!==k||this.nodo) return; const s=c.createBufferSource(), g=c.createGain(), t0=c.currentTime; s.buffer=b;
+   if(q.giro){ s.loop=true; s.loopStart=q.giro[0]; s.loopEnd=Math.min(q.giro[1],b.duration) }
+   g.gain.setValueAtTime(.0001,t0); g.gain.linearRampToValueAtTime(q.vol||.5,t0+(q.entra||.9)); s.connect(g); g.connect(Au.reg); s.start(t0,q.parti||0); this.nodo={s:s,g:g,k:k};
+   if(!q.giro) s.onended=()=>{ if(this.nodo&&this.nodo.s===s){ this.nodo=null; this.chiave=null; this.viva=false } } },
+  ()=>{ if(this.chiave===k){ this.chiave=null; this.viva=false; delete this.cache[k] } }) },
+ sveglia(){ if(this.voluta&&this.voci&&!this.nodo){ this.chiave=null; this.suona(this.voluta) } },
+ colpo(k){ const c=Au.ctx; if(!c||!this.voci||!this.voci[k]||!Au.reg) return false; const q=this.voci[k];
+  this.dati(k).then(b=>{ const s=c.createBufferSource(), g=c.createGain(); s.buffer=b; g.gain.value=q.vol||.6; s.connect(g); g.connect(Au.reg); s.start() },()=>{}); return true },
+ ferma(){ if(this.nodo||this.voluta) this.suona(null) }
 };
 
 /* ---------------- MOTORE 3D SU TELA 2D ---------------- */
@@ -1374,7 +1442,13 @@ const nebbiaK=d=>Math.min(.88,clamp((d-8)/85,0,.75)*pal.fk);
 function avviso(txt,sub,dur){ G.avv={txt:txt,sub:sub||'',t:0,dur:dur||2} }
 function applica(){ G.tamburo=G.pot.tamburo?8:6; G.ricDur=G.pot.svelta?.6:1.15; G.tol=(G.pot.falco?1.35:1)*(tocco?1.3:1); G.stelleMax=DIFF[G.diff].stelle+(G.pot.stella||0)+(P_.cad&&P_.cad[G.miss]>=2?1:0) }
 function svuota(){ tizi.length=0; candelotti.length=0; parti.length=0; scritte.length=0; rotola.length=0; gente.length=0; cavalli.length=0 }
-function suoni(){ Au.musica(citta.musica); Au.ambiente(citta.amb) }
+const VITA={paese:['cavallo','cigolio','cane','rintocco','corvo'],camposanto:['corvo','rintocco','gufo'],treno:['fischioTreno','aquila'],recinto:['cavallo','gufo','coyote'],pista:['aquila','cavallo'],fiume:['aquila','corvo'],battello:['fischioTreno','aquila'],bosco:['gufo','lupo'],canyon:['aquila','sasso'],lago:['crepa','lupo'],arena:['folla','cavallo','frusta','folla'],ferrovia:['fischioTreno','aquila'],prateria:['muggito','muggito','cavallo','frusta'],cielo:['aquila'],assedio:['corvo','cavallo'],forte:['corvo','rintocco','cavallo'],galleria:['goccia','sasso','goccia'],labirinto:['goccia','goccia','sasso']};
+const ECO={canyon:.42,galleria:.5,labirinto:.55,lago:.22,assedio:.2,forte:.16,camposanto:.14,paese:.08,recinto:.1,bosco:.16,pista:.1,ferrovia:.1,cielo:.1,interno:.04};
+// l'aria di una scena: ai suoni di fondo aggiunge i versi del posto, l'eco e l'acqua
+function ariaDi(s){ const a=Object.assign({},s.amb||AMB0), tp=s.tipo, p=s.pal||{}, z=p.zen?hex(p.zen):[90,90,90], notte=z[0]+z[1]+z[2]<170;
+ if(a.vita===undefined){ let v=VITA[tp]||null; if(v&&p.neve) v=tp==='paese'?['lupo','cigolio','rintocco']:tp==='pista'?['lupo','aquila']:v; else if(v&&notte&&(tp==='paese'||tp==='pista')) v=['coyote','gufo','cigolio','cane']; a.vita=v }
+ if(a.eco===undefined) a.eco=ECO[tp]||0; if(a.acqua===undefined) a.acqua=tp==='fiume'?.07:tp==='battello'?.05:0; return a }
+function suoni(){ Au.musica(citta.musica); Au.ambiente(ariaDi(citta)) }
 // qualcuno in giro prima che si cominci a sparare: poi scappano tutti
 function popola(){
  gente.length=0; const tp=citta.tipo; if(tp==='treno') return; const n=tp==='paese'?4:tp==='interno'?3:2;
@@ -2014,7 +2088,7 @@ function iniziaProva(pr,scena){
 }
 function perdiStella(txt,sub){
  if(G.invuln>0||G.stato!=='prova') return; G.invuln=1.3; if(G.pot.ferro&&!G.prova.fortuna){ G.prova.fortuna=true; Au.ferro(); avviso('Che fortuna!','Il ferro di cavallo ti ha salvato',1.6); return } G.stelle--; G.perse++; G.rosso=1; G.scossa=1; Au.ahi(); if(txt) avviso(txt,sub||'',1.7);
- if(G.stelle<=0){ const pr=G.prova; pr.finita=true; setTimeout(()=>{ if(G.stato!=='prova'||G.prova!==pr) return; G.stato='perso'; cv.classList.remove('mira'); barra.classList.remove('su'); Au.musica(null); Au.fanfara(false); Au.ambiente(AMB0); schermoPerso() },900) }
+ if(G.stelle<=0){ const pr=G.prova; pr.finita=true; setTimeout(()=>{ if(G.stato!=='prova'||G.prova!==pr) return; G.stato='perso'; cv.classList.remove('mira'); barra.classList.remove('su'); Au.musica(null); Au.finale(false); Au.ambiente(AMB0); schermoPerso() },900) }
 }
 function hudProva(tit,sotto,q,dest){
  const sc=H/540*grande;
@@ -2371,7 +2445,7 @@ function provaCassaforte(){
 function agio(){ return 1+.12*Math.min(3,(P_.cad&&P_.cad[G.miss])||0) }   // chi ha già perso una missione la trova un po' più facile
 function kd(){ return DIFF[G.diff].k*agio() }
 const titoloM=i=>'Missione '+(i+1)+' · '+MISS[i].n;
-function fallisci(tit,txt){ const pr=G.prova; if(!pr||pr.finita) return; pr.finita=true; if(pr.su) pr.su(0,0); avviso(tit,'',1.8); Au.fanfara(false); setTimeout(()=>{ if(G.stato!=='prova'||G.prova!==pr) return; G.stato='perso'; cv.classList.remove('mira'); barra.classList.remove('su'); Au.musica(null); schermoPerso(txt) },1500) }
+function fallisci(tit,txt){ const pr=G.prova; if(!pr||pr.finita) return; pr.finita=true; if(pr.su) pr.su(0,0); avviso(tit,'',1.8); Au.finale(false); setTimeout(()=>{ if(G.stato!=='prova'||G.prova!==pr) return; G.stato='perso'; cv.classList.remove('mira'); barra.classList.remove('su'); Au.musica(null); schermoPerso(txt) },1500) }
 function fondoCielo(px,oriz){ const k=H*oriz/POR; let u=((px%PW)+PW)%PW; const sw=W/k, a=Math.min(sw,PW-u); g.drawImage(T.cielo,u,0,a,PH,0,0,a*k+.5,PH*k); if(a<sw) g.drawImage(T.cielo,0,0,sw-a,PH,a*k-.5,0,(sw-a)*k+.5,PH*k) }
 function fondoTavolo(a,b){ const gr=g.createRadialGradient(W/2,H*.45,H*.1,W/2,H/2,W*.72); gr.addColorStop(0,a||'#7a5230'); gr.addColorStop(1,b||'#1c0f07'); g.fillStyle=gr; g.fillRect(0,0,W,H); g.strokeStyle='rgba(0,0,0,.18)'; g.lineWidth=2; g.beginPath(); for(let y=H*.07;y<H;y+=H*.115){ g.moveTo(0,y); g.lineTo(W,y) } g.stroke() }
 function rr(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath() }
@@ -3023,14 +3097,21 @@ const ov=document.getElementById('ov'), barra=document.getElementById('barra');
 function apri(html,buio){ ov.innerHTML=html; ov.className='su'+(buio?' scuro':''); ov.scrollTop=0 }
 function chiudi(){ ov.className=''; ov.innerHTML='' }
 function schermoTitolo(){
- G.stato='titolo'; G.tF=0; fuori(); Au.musica('ottava'); Au.ambiente(AMB0);
+ G.stato='titolo'; G.tF=0; fuori(); Au.musica('ottava'); Au.ambiente(AMB_TIT);
  const s=leggi('viaggio',null), mela=tocco&&!navigator.standalone&&/iPhone|iPad|iPod/.test(navigator.userAgent);
  apri('<div id="titolo"><h1>L’OTTAVA <br>TAGLIA</h1><div class="sot">IL SEGUITO DI SETTE TAGLIE</div>'+
   (s&&s.fatte&&(s.fatte.length||s.aperto)?'<div class="riga"><button class="b" data-a="continua">Continua il viaggio</button></div>':'')+
   '<div class="riga">'+DIFF.map((d,i)=>'<button class="b'+(s&&s.aperto?' sec':'')+'" data-a="nuova" data-d="'+i+'">'+(s&&s.aperto?'Ricomincia: ':'')+d.n+'</button>').join('')+'</div>'+
-  '<div class="riga"><button class="b sec" data-a="come">Come si gioca</button>'+(s&&s.aperto?'<button class="b sec" data-a="album0">Album</button>':'')+'</div>'+
+  '<div class="riga"><button class="b sec" data-a="come">Come si gioca</button><button class="b sec" data-a="colonna">Musica</button>'+(s&&s.aperto?'<button class="b sec" data-a="album0">Album</button>':'')+'</div>'+
   '<div class="rec">'+(s&&s.aperto?'Missioni '+(s.fatte||[]).filter(Boolean).length+' di 30':'Sei capitoli, trenta missioni')+'</div>'+(mela?'<div class="rec">A tutto schermo: tasto Condividi, poi «Aggiungi alla schermata Home»</div>':'')+'</div>');
 }
+function schermoColonna(msg){ const h=Col.info;
+ apri('<div class="carta"><h2>Colonna sonora</h2>'+
+  (h?'<p><b>Caricata:</b> '+h.voci.length+' scene, '+(Col.buf.byteLength/1048576).toFixed(1)+' MB. '+(Col.salvata?'Resta su questo apparecchio.':'Non sono riuscito a salvarla: alla prossima apertura andrà ricaricata.')+'</p>'
+    :'<p>Il gioco ha la sua musica. Se vuoi, qui puoi caricare una colonna sonora tua: un file <b>.ottava</b> preparato sul computer con i brani che possiedi.</p><p>Il file resta su questo apparecchio: non viene mandato da nessuna parte.</p>')+
+  (msg?'<p><b>'+msg+'</b></p>':'')+
+  '<div class="riga"><label class="b" style="position:relative;overflow:hidden">'+(h?'Cambia file':'Scegli il file')+'<input type="file" id="fcol" style="position:absolute;left:0;top:0;width:100%;height:100%;opacity:0"></label>'+
+  (h?'<button class="b sec" data-a="colonnaVia">Togli</button>':'')+'<button class="b sec" data-a="titolo">Indietro</button></div></div>',true) }
 function schermoCome(){
  apri('<div class="carta"><h2>Come si gioca</h2><p>Hai preso i sette. Ma qualcuno li pagava: è <b>l’ottava taglia</b>, e nessuno sa chi sia. A ogni capitolo raccogli indizi e il suo ritratto si completa un pezzo alla volta.</p>'+
   '<p><b>Le missioni sono diverse:</b> si parla e si gioca al saloon, si striscia di notte, si cavalca, si vola, si risolvono enigmi, si spara.</p>'+
@@ -3046,7 +3127,7 @@ function schermoLettera(){
  apri('<div class="carta tele"><div class="testa">TELEGRAFO · CROCESECCA</div><p class="tlg">I SETTE LI PAGAVO IO STOP<br>TU HAI SVUOTATO LE MIE TASCHE STOP<br>VIENI A PRENDERMI SE SAI DOVE CERCARE STOP<br>L’OTTAV— <i>(il filo si interrompe)</i></p><div class="manif"><span id="rit"></span><div class="t"><h2>L’ottava taglia</h2><p>Nessun nome, nessun volto: il manifesto è vuoto.</p><div class="taglia">$10.000</div></div></div><div class="riga"><button class="b" data-a="mappa">In viaggio</button></div></div>',true); metti('rit',ritrattoOtto());
 }
 function schermoMappa(){
- fuori(); G.stato='mappa'; Au.musica('bivacco'); Au.ambiente(AMB0); P_.aperto=true; salvaP();
+ fuori(); G.stato='mappa'; Au.musica('bivacco'); Au.ambiente(AMB_BIV); P_.aperto=true; salvaP();
  const aperti=BOSS.filter((b,i)=>i<5&&P_.fatte[b]).length, capMax=BOSS.findIndex(b=>!P_.fatte[b])<0?5:Math.min(5,BOSS.findIndex(b=>!P_.fatte[b]));
  const cap=P_.cap=clamp(P_.cap||0,0,capMax), ult=MISS.findIndex((m,i)=>!P_.fatte[i]), da=cap*5;
  apri('<div class="carta mappa"><div class="mtit"><b>Capitolo '+(cap+1)+' · '+CAPI[cap]+'</b><span class="pic">'+rango()+' · '+totMed()+' ★</span><span>'+soldi(G.soldi)+'</span></div><div class="tmap" id="tmap">'+
@@ -3138,8 +3219,8 @@ const FINI=[null,null,
  {v:'La Lanternaia sorride: «Non hai capito? Tutti lo guardano e nessuno lo vede. Serve da bere a chi gli dà la caccia. Il covo è oltre le torri.»',m:'La Lanternaia non parla più. Nella sua lanterna, un biglietto: «Grembiule bianco».',p:'Il quinto pezzo del ritratto'}];
 function vinciMissione(i,x){
  x=x||{}; const prima=!P_.fatte[i], premio=i<10?[60,120,60+(x.sacchi||0)*10,100,0,120,120,160,180,0][i]:110+((i/5|0)-1)*25; if(prima) G.soldi+=premio; P_.fatte[i]=true; if(P_.indizi.indexOf(i)<0) P_.indizi.push(i); if(i===0) P_.ubri=Math.min(P_.ubri,3); const md=segnaMed(i);
- salvaP(); Au.musica(null); Au.fanfara(true); G.tp=null;
- setTimeout(()=>{ if(G.stato==='titolo') return; G.stato='mappa'; fuori(); Au.musica('bivacco'); Au.ambiente(AMB0);
+ salvaP(); Au.musica(null); Au.finale(true); G.tp=null;
+ setTimeout(()=>{ if(G.stato==='titolo') return; G.stato='mappa'; fuori(); Au.musica('bivacco'); Au.ambiente(AMB_BIV);
   apri('<div class="carta" style="max-width:660px"><p class="pic">Missione '+(i+1)+' compiuta</p><h1>'+MISS[i].n+'</h1><p class="meda md'+md+'">'+NMED[md]+(prima?' · Ricompensa: <b>'+soldi(premio)+'</b>':'')+'</p>'+(x.txt?'<p>'+x.txt+'</p>':'')+'<p><b>Nuovo indizio:</b> <i>'+INDIZI[i]+'</i></p>'+figuraH(i)+'<div class="riga"><button class="b" data-a="mappa">Alla mappa</button></div></div>',true) },1300);
 }
 const NMED=['','★ Medaglia di bronzo','★★ Medaglia d’argento','★★★ Medaglia d’oro!'];
@@ -3208,7 +3289,7 @@ function schermoRisposta(){
 function suonaMorse(p){ if(!Au.ctx) return; let t=Au.ctx.currentTime+.4; for(const l of p){ for(const s of MORSE[l]){ const d=s==='-'?.34:.11; Au.tono('sine',640,640,d,.16,t); t+=d+.11 } t+=.36 } }
 function fineCapitolo(){
  const n=G.liv, ci=BOSS.indexOf(n), t=TAGLIE[n], v=D.esito==='vivo', prima=!P_.fatte[n]; P_.vivi[n]=v; if(ci===0) P_.vivo=v; if(ci===1) P_.vivo2=v; if(prima){ if(v) P_.giusto++; else P_.duro++ } const ta=v?t.t:Math.round(t.t/2); if(prima) G.soldi+=ta; P_.fatte[n]=true; if(P_.indizi.indexOf(n)<0) P_.indizi.push(n); P_.ubri=0; const md=segnaMed(n);
- fuori(); G.stato='mappa'; Au.musica('bivacco'); Au.ambiente(AMB0); G.rall=0; if(prima&&ci<5) P_.cap=ci+1; salvaP();
+ fuori(); G.stato='mappa'; Au.musica('bivacco'); Au.ambiente(AMB_BIV); G.rall=0; if(prima&&ci<5) P_.cap=ci+1; salvaP();
  if(ci===5){ schermoFinale(v,ta,prima); return }
  const fi=FINI[ci], fem=n===9||n===24, txt=fi?(v?fi.v:fi.m):ci===1?(v?'La Traghettatrice guarda il fiume e parla: «L’ho portato io, una notte. Ha gli occhi chiari, quasi grigi, e una cicatrice sul sopracciglio. È salito verso i monti Spezzati, con quaranta uomini.»':'La Traghettatrice è caduta nel fiume. Di lui resta solo un disegno sbiadito dall’acqua: due occhi chiari.')
   :(v?'Il Contabile, in cella, conta i giorni e parla: «Non so il nome. Porta un cilindro rosso, e un anello con l’otto sdraiato. Cercalo oltre il fiume Torbido.»':'Il Contabile non parla più. Nei suoi libri, mezzi bruciati, si legge appena: «…cilindro rosso… fiume Torbido…».');
@@ -3236,6 +3317,9 @@ const AZ={
  risposta(d){ if(d.k===P_.dove) vinciMissione(3,{txt:'Passo Secco, a '+P_.dove+'. I rinforzi arriveranno… domani.'}); else { G.soldi=Math.max(0,G.soldi-10); Au.vuoto(); schermoRisposta() } }, riascolta(){ Au.avvia(); suonaMorse(P_.dove.toUpperCase()) }
 };
 function costruisciTitolo(){ svuota(); D=null; LV=null; G.prova=null; G.fase=''; G.barre=0; G.buio=0; G.rall=0; attiva(faiPaese(13,3,'stazione')); G.V={x:0,z:-2,yaw:0,hz:.1} }
+AZ.colonna=()=>schermoColonna(); AZ.colonnaVia=()=>{ Col.togli().then(()=>schermoColonna('Tolta: è tornata la musica del gioco.')) };
+ov.addEventListener('change',e=>{ const f=e.target.id==='fcol'&&e.target.files&&e.target.files[0]; if(!f) return; Au.avvia(); schermoColonna('Sto caricando…'); Col.installa(f).then(()=>schermoColonna('Fatto: da adesso suona la tua musica.'),()=>schermoColonna('Questo file non è una colonna sonora del gioco.')) });
+Col.avvio();
 ov.addEventListener('click',e=>{ const b=e.target.closest('[data-a]'); if(!b||b.disabled) return; Au.avvia(); AZ[b.dataset.a](b.dataset) });
 document.getElementById('bPausa').addEventListener('click',e=>{ e.stopPropagation(); pausa(!G.pausa) });
 const bAudio=document.getElementById('bAudio'); const segnaAudio=()=>{ bAudio.style.opacity=Au.on?1:.45 }; segnaAudio();
@@ -3269,7 +3353,7 @@ function giro(t){
 misura(); costruisciTitolo(); schermoTitolo(); requestAnimationFrame(giro);
 
 // appigli per le prove (il browser interno non fa girare le animazioni da solo)
-window.__taglie={G:G,cam:cam,Au:Au,BRANI:BRANI,get T(){return T},get hy(){return hy},def(v){ ris=v; misura(); return [W,H] },tizi:tizi,get D(){return D},get citta(){return citta},spara:spara,AZ:AZ,
+window.__taglie={G:G,cam:cam,Au:Au,Col:Col,BRANI:BRANI,get T(){return T},get hy(){return hy},def(v){ ris=v; misura(); return [W,H] },tizi:tizi,get D(){return D},get citta(){return citta},spara:spara,AZ:AZ,
  passi(n,dt){ for(let i=0;i<(n||1);i++){ aggiorna(dt||.033); disegna() } return this.stato() },
  get LV(){return LV}, get P(){return P_}, get TV(){return TV}, PARTI:PARTI, schermoMissione:schermoMissione, valuta:valuta, cavalli:cavalli, corridore:corridore, vai(liv,diff,modo){ G.modo=modo||'storia'; G.onda=0; G.diff=diff===undefined?1:diff; iniziaLivello(liv) },
  stato(){ return {scena:citta.tipo,onda:G.onda,tappe:LV?LV.tappe.length:0,stato:G.stato,liv:G.liv,fase:G.fase,tappa:G.tappa,rimasti:G.tp?G.tp.rimasti:null,duello:D?D.stato:null,stelle:G.stelle,soldi:G.soldi,colpi:G.colpi,tizi:tizi.length,slot:G.tp?G.tp.slots.length:null,W:W,H:H} }
